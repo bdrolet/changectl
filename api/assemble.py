@@ -8,6 +8,9 @@ from api.schemas import (
     ChangeDetail,
     ChangeSummary,
     CommentOut,
+    DocumentDetail,
+    DocumentRevisionOut,
+    DocumentSummary,
     EventOut,
     RevisionOut,
 )
@@ -128,20 +131,7 @@ def change_detail(conn: Any, row: dict) -> ChangeDetail:
         )
         for r in changes.comments_with_names(conn, change_id)
     ]
-    names = {str(u["id"]): u["name"] for u in users.list_all(conn)}
-    event_rows = [
-        EventOut(
-            id=str(e["id"]),
-            at=e["at"],
-            actor_user_id=str(e["actor_user_id"]) if e["actor_user_id"] else None,
-            actor_name=names.get(str(e["actor_user_id"])) if e["actor_user_id"] else None,
-            entity_type=e["entity_type"],
-            entity_id=str(e["entity_id"]),
-            action=e["action"],
-            detail=e["detail"] or {},
-        )
-        for e in events.for_change(conn, change_id)
-    ]
+    event_rows = event_outs(conn, events.for_change(conn, change_id))
     return ChangeDetail(
         **_summary_fields(conn, row, revisions),
         description=row["description"],
@@ -156,4 +146,72 @@ def change_detail(conn: Any, row: dict) -> ChangeDetail:
         approvals=approvals,
         comments=comments,
         events=event_rows,
+    )
+
+
+def event_outs(conn: Any, rows: list[dict]) -> list[EventOut]:
+    names = {str(u["id"]): u["name"] for u in users.list_all(conn)}
+    return [
+        EventOut(
+            id=str(e["id"]),
+            at=e["at"],
+            actor_user_id=str(e["actor_user_id"]) if e["actor_user_id"] else None,
+            actor_name=names.get(str(e["actor_user_id"])) if e["actor_user_id"] else None,
+            entity_type=e["entity_type"],
+            entity_id=str(e["entity_id"]),
+            action=e["action"],
+            detail=e["detail"] or {},
+        )
+        for e in rows
+    ]
+
+
+def document_summary(row: dict) -> DocumentSummary:
+    return DocumentSummary(
+        id=str(row["document_id"]),
+        title=row["title"],
+        current_revision_id=str(row["current_revision_id"]),
+        revision_number=row["revision_number"],
+        released_at=row["released_at"],
+        released_by_name=row["released_by_name"],
+        original_filename=row["original_filename"],
+        rank=float(row["rank"]),
+    )
+
+
+def document_detail_out(detail: dict) -> DocumentDetail:
+    revisions = [
+        DocumentRevisionOut(
+            id=str(r["id"]),
+            document_id=str(r["document_id"]),
+            document_title=detail["title"],
+            revision_number=r["revision_number"],
+            original_filename=r["original_filename"],
+            content_type=r["content_type"],
+            byte_size=r["byte_size"],
+            sha256=r["sha256"],
+            has_redline=r["redline_gcs_key"] is not None,
+            uploaded_by=str(r["uploaded_by"]),
+            uploaded_at=r["uploaded_at"],
+            released_at=r["released_at"],
+            change_id=str(r["change_id"]),
+            change_number=r["change_display"],
+            change_title=r["change_title"],
+            change_status=str(r["change_status"]),
+            cutin_date=r["cutin_date"],
+            approvals=[
+                {**a, "signed_at": a["signed_at"].isoformat() if a["signed_at"] else None}
+                for a in r["approvals"]
+            ],
+        )
+        for r in detail["revisions"]
+    ]
+    return DocumentDetail(
+        id=str(detail["id"]),
+        title=detail["title"],
+        created_at=detail["created_at"],
+        current_revision_id=(
+            str(detail["current_revision_id"]) if detail["current_revision_id"] else None
+        ),
+        revisions=revisions,
     )

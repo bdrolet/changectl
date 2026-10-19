@@ -79,6 +79,9 @@ def from_env() -> Storage:
     return LocalStorage(Path(os.environ.get("CHANGECTL_LOCAL_STORAGE", ".storage")))
 
 
+def safe_filename(name: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name) or "file"
+
+
 def object_key(document_id: str, revision_id: str, filename: str) -> str:
-    safe_filename = re.sub(r"[^A-Za-z0-9._-]", "_", filename) or "file"
-    return f"documents/{document_id}/{revision_id}/{safe_filename}"
+    return f"documents/{document_id}/{revision_id}/{safe_filename(filename)}"

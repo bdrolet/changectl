@@ -1,4 +1,3 @@
-import uuid
 from datetime import date
 from typing import Literal
 
@@ -10,6 +9,7 @@ import clients.otel as otel
 from api import assemble
 from api.auth import current_user
 from api.deps import get_conn_dep, get_storage
+from api.ids import uid
 from api.schemas import ChangeDetail, ChangeSummary, CommentOut, RevisionOut
 from clients.storage import Storage
 from models.errors import LifecycleError
@@ -55,13 +55,6 @@ class CommentBody(BaseModel):
     body: str
 
 
-def _uid(value: str) -> str:
-    try:
-        return str(uuid.UUID(value))
-    except ValueError:
-        raise LifecycleError("not_found", "not found") from None
-
-
 def _detail(conn, change_id: str) -> ChangeDetail:
     return assemble.change_detail(conn, changes_repo.get(conn, change_id))  # type: ignore[arg-type]
 
@@ -93,7 +86,7 @@ def list_changes(
 def get_change(
     change_id: str, _user: dict = Depends(current_user), conn=Depends(get_conn_dep)
 ) -> ChangeDetail:
-    cid = _uid(change_id)
+    cid = uid(change_id)
     row = changes_repo.get(conn, cid)
     if row is None:
         raise LifecycleError("not_found", "change not found")
@@ -107,7 +100,7 @@ def patch_change(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
-    row = lifecycle.update_change(conn, actor, _uid(change_id), **body.model_dump())
+    row = lifecycle.update_change(conn, actor, uid(change_id), **body.model_dump())
     return assemble.change_detail(conn, row)
 
 
@@ -121,8 +114,8 @@ async def attach_revision(
     conn=Depends(get_conn_dep),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
-    cid = _uid(change_id)
-    did = _uid(document_id) if document_id else None
+    cid = uid(change_id)
+    did = uid(document_id) if document_id else None
     data = await file.read()
     rev = await run_in_threadpool(
         lifecycle.attach_revision,
@@ -146,7 +139,7 @@ def remove_revision(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> Response:
-    lifecycle.remove_revision(conn, actor, _uid(change_id), _uid(revision_id))
+    lifecycle.remove_revision(conn, actor, uid(change_id), uid(revision_id))
     return Response(status_code=204)
 
 
@@ -157,8 +150,8 @@ def put_approvers(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
-    cid = _uid(change_id)
-    lifecycle.set_approvers(conn, actor, cid, [_uid(u) for u in body.user_ids])
+    cid = uid(change_id)
+    lifecycle.set_approvers(conn, actor, cid, [uid(u) for u in body.user_ids])
     return _detail(conn, cid)
 
 
@@ -166,7 +159,7 @@ def put_approvers(
 def submit_change(
     change_id: str, actor: dict = Depends(current_user), conn=Depends(get_conn_dep)
 ) -> ChangeDetail:
-    return assemble.change_detail(conn, lifecycle.submit(conn, actor, _uid(change_id)))
+    return assemble.change_detail(conn, lifecycle.submit(conn, actor, uid(change_id)))
 
 
 @router.post("/{change_id}/approve")
@@ -177,7 +170,7 @@ def approve_change(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
-    cid = _uid(change_id)
+    cid = uid(change_id)
     comment = body.comment if body else None
     lifecycle.approve(conn, actor, cid, google_sub=request.state.google_sub, comment=comment)
     return _detail(conn, cid)
@@ -191,7 +184,7 @@ def request_changes(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
-    cid = _uid(change_id)
+    cid = uid(change_id)
     lifecycle.request_changes(
         conn, actor, cid, google_sub=request.state.google_sub, comment=body.comment
     )
@@ -207,8 +200,8 @@ async def release_file(
     conn=Depends(get_conn_dep),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
-    cid = _uid(change_id)
-    rid = _uid(revision_id)
+    cid = uid(change_id)
+    rid = uid(revision_id)
     data = await file.read()
     rev = await run_in_threadpool(
         lifecycle.replace_release_file,
@@ -231,7 +224,7 @@ def release_change(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
-    row = lifecycle.release(conn, actor, _uid(change_id), cutin_date=body.cutin_date)
+    row = lifecycle.release(conn, actor, uid(change_id), cutin_date=body.cutin_date)
     return assemble.change_detail(conn, row)
 
 
@@ -242,5 +235,5 @@ def add_comment(
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> CommentOut:
-    row = lifecycle.add_comment(conn, actor, _uid(change_id), body.body)
+    row = lifecycle.add_comment(conn, actor, uid(change_id), body.body)
     return assemble.comment_out(conn, row)
