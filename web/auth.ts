@@ -1,11 +1,10 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
 import type { UserOut } from "@/lib/types";
 
 declare module "next-auth" {
   interface Session {
-    idToken?: string;
     error?: "RefreshFailed";
     user: {
       id: string;
@@ -27,7 +26,7 @@ declare module "@auth/core/jwt" {
   }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authConfig: NextAuthConfig = {
   providers: [Google],
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: { signIn: "/signin" },
@@ -94,9 +93,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.name = user.name;
         session.user.email = user.email;
       }
-      session.idToken = token.id_token;
       if (token.error) session.error = token.error;
       return session;
     },
   },
-});
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);

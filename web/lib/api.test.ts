@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/auth", () => ({
-  auth: vi.fn(async () => ({ idToken: "t", user: { id: "u1" } })),
+  auth: vi.fn(async () => ({ user: { id: "u1" } })),
+}));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("next-auth/jwt", () => ({
+  getToken: vi.fn(async () => ({ id_token: "t" })),
 }));
 
 import { apiFetch } from "@/lib/api";

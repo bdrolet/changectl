@@ -1,5 +1,8 @@
 import "server-only";
 
+import { headers as requestHeaders } from "next/headers";
+import { getToken } from "next-auth/jwt";
+
 import { auth } from "@/auth";
 
 export class ApiError extends Error {
@@ -26,12 +29,22 @@ export async function apiFetch<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const session = await auth();
-  if (!session || session.error || !session.idToken) {
+  if (!session || session.error) {
+    throw new ApiError(401, "missing_bearer", "Not signed in");
+  }
+  // The ID token lives only in the encrypted JWT cookie; it is never copied
+  // onto the session, which /api/auth/session serves to the browser.
+  const token = await getToken({
+    req: { headers: await requestHeaders() },
+    secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.AUTH_URL?.startsWith("https") ?? false,
+  });
+  if (!token?.id_token) {
     throw new ApiError(401, "missing_bearer", "Not signed in");
   }
 
   const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${session.idToken}`);
+  headers.set("Authorization", `Bearer ${token.id_token}`);
   if (init.body instanceof FormData) {
     headers.delete("Content-Type");
   } else {
