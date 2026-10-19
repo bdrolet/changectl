@@ -203,3 +203,28 @@ def open_changes_awaiting(conn: Any, user_id: str) -> list[dict]:
         """,
         (user_id,),
     ).fetchall()
+
+
+def all_approvals(conn: Any, change_id: str) -> list[dict]:
+    """Every approval row, live and voided, newest first, with the signer's name."""
+    return conn.execute(
+        """
+        SELECT p.*, u.name
+        FROM approvals p JOIN users u ON u.id = p.user_id
+        WHERE p.change_id = %s::uuid
+        ORDER BY p.signed_at DESC, p.id
+        """,
+        (change_id,),
+    ).fetchall()
+
+
+def comments_with_names(conn: Any, change_id: str) -> list[dict]:
+    return conn.execute(
+        """
+        SELECT c.*, u.name
+        FROM comments c JOIN users u ON u.id = c.user_id
+        WHERE c.change_id = %s::uuid
+        ORDER BY c.created_at, c.id
+        """,
+        (change_id,),
+    ).fetchall()

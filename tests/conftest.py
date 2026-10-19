@@ -73,11 +73,13 @@ class ApiHarness:
 def api_client(db_conn, monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
 
-    from api.deps import get_conn_dep
+    from api.deps import get_conn_dep, get_storage
     from api.main import app
+    from clients.storage import LocalStorage
 
     monkeypatch.delenv("K_SERVICE", raising=False)
     app.dependency_overrides[get_conn_dep] = lambda: db_conn
+    app.dependency_overrides[get_storage] = lambda: LocalStorage(tmp_path)
     try:
         yield ApiHarness(TestClient(app), monkeypatch)
     finally:

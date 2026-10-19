@@ -39,7 +39,8 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-from api.routers import me, users  # noqa: E402
+from api.routers import changes, me, users  # noqa: E402
 
+app.include_router(changes.router)
 app.include_router(me.router)
 app.include_router(users.router)

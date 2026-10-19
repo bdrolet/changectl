@@ -1,8 +1,10 @@
 from collections.abc import Iterator
 
-from clients import db
+from clients import db, storage
 
-# get_storage will also live here.
+
+def get_storage() -> storage.Storage:
+    return storage.from_env()
 
 
 def get_conn_dep() -> Iterator:
