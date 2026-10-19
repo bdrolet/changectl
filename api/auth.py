@@ -16,8 +16,9 @@ def _bearer(request: Request) -> str:
 
 def current_user(request: Request, conn=Depends(get_conn_dep)) -> dict:
     dev_email = os.environ.get("CHANGECTL_DEV_USER_EMAIL")
-    if not os.environ.get("K_SERVICE") and dev_email:
-        email, sub = dev_email, "dev"
+    dev = bool(dev_email) and not os.environ.get("K_SERVICE")
+    if dev:
+        email, sub = str(dev_email), "dev"
     else:
         token = _bearer(request)
         try:
@@ -31,7 +32,9 @@ def current_user(request: Request, conn=Depends(get_conn_dep)) -> dict:
     user = users.by_email(conn, email)
     if user is None or user["deactivated_at"] is not None:
         raise HTTPException(403, detail="not_invited")
-    if user["google_sub"] is None:
+    if dev:
+        pass  # dev identity is never persisted or compared
+    elif user["google_sub"] is None:
         users.set_google_sub(conn, str(user["id"]), sub)
         events.record(
             conn,

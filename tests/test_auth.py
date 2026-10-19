@@ -125,6 +125,18 @@ def test_dev_bypass_only_off_cloud_run(ctx, monkeypatch):
     assert ctx["calls"] == []
 
 
+def test_dev_bypass_does_not_store_sub(ctx, monkeypatch):
+    row = _user(ctx["conn"])
+    monkeypatch.setenv("CHANGECTL_DEV_USER_EMAIL", "ann@example.com")
+    assert ctx["client"].get("/me").status_code == 200
+    assert users.by_id(ctx["conn"], str(row["id"]))["google_sub"] is None
+    assert events.for_entity(ctx["conn"], "user", str(row["id"])) == []
+    users.set_google_sub(ctx["conn"], str(row["id"]), "real-sub")
+    r = ctx["client"].get("/me")
+    assert r.status_code == 200
+    assert r.json()["sub"] == "dev"
+
+
 def test_dev_bypass_unknown_email_403(ctx, monkeypatch):
     monkeypatch.setenv("CHANGECTL_DEV_USER_EMAIL", "nobody@example.com")
     r = ctx["client"].get("/me")
