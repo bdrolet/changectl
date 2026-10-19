@@ -23,6 +23,11 @@ def insert(
     ).fetchone()
 
 
+def lock(conn: Any, change_id: str) -> None:
+    """Row-lock the change until the caller's transaction ends."""
+    conn.execute("SELECT id FROM changes WHERE id = %s::uuid FOR UPDATE", (change_id,))
+
+
 def get(conn: Any, change_id: str) -> dict | None:
     return conn.execute("SELECT * FROM changes WHERE id = %s::uuid", (change_id,)).fetchone()
 

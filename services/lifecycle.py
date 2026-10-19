@@ -107,10 +107,8 @@ def _store_upload(
     )
     key = object_key(document_id, str(rev["id"]), filename)
     storage.put(key, data, content_type)
-    rev = conn.execute(
-        "UPDATE revisions SET gcs_key = %s WHERE id = %s::uuid RETURNING *",
-        (key, str(rev["id"])),
-    ).fetchone()
+    documents.set_gcs_key(conn, str(rev["id"]), key)
+    rev["gcs_key"] = key
     return rev
 
 
@@ -153,6 +151,7 @@ def attach_revision(
 ) -> dict:
     change = _load_change(conn, change_id)
     _require_editable(change)
+    _require_creator(actor, change)
     content_type = _check_upload(data)
     if document_id is not None:
         if documents.document(conn, document_id) is None:
@@ -190,13 +189,14 @@ def attach_revision(
 def remove_revision(conn: Any, actor: dict, change_id: str, revision_id: str) -> None:
     change = _load_change(conn, change_id)
     _require_editable(change)
+    _require_creator(actor, change)
     rev = documents.revision(conn, revision_id)
     if rev is None or str(rev["change_id"]) != str(change_id):
         raise LifecycleError("not_found", "revision not found on this change")
     document_id = str(rev["document_id"])
     documents.delete_revision(conn, revision_id)
     if not documents.revisions_for_document(conn, document_id):
-        conn.execute("DELETE FROM documents WHERE id = %s::uuid", (document_id,))
+        documents.delete_document(conn, document_id)
     _record(
         conn,
         actor,
@@ -210,8 +210,9 @@ def remove_revision(conn: Any, actor: dict, change_id: str, revision_id: str) ->
 def set_approvers(conn: Any, actor: dict, change_id: str, user_ids: list[str]) -> list[dict]:
     change = _load_change(conn, change_id)
     _require_editable(change)
+    _require_creator(actor, change)
     ids = [str(u) for u in user_ids]
-    if str(actor["id"]) in ids:
+    if str(change["created_by"]) in ids:
         raise LifecycleError("self_approval", "you cannot approve your own change")
     for uid in ids:
         user = users.by_id(conn, uid)
@@ -240,6 +241,7 @@ def submit(conn: Any, actor: dict, change_id: str) -> dict:
 def approve(
     conn: Any, actor: dict, change_id: str, *, google_sub: str, comment: str | None
 ) -> dict:
+    changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
     _require_status(change, "approval")
     approver_ids = {str(a["user_id"]) for a in changes.approvers(conn, change_id)}
@@ -279,6 +281,7 @@ def approve(
 def request_changes(
     conn: Any, actor: dict, change_id: str, *, google_sub: str, comment: str
 ) -> dict:
+    changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
     _require_status(change, "approval")
     approver_ids = {str(a["user_id"]) for a in changes.approvers(conn, change_id)}
@@ -322,7 +325,8 @@ def replace_release_file(
     if content_type != rev["content_type"]:
         raise LifecycleError("type_mismatch", "replacement must be the same file type")
     sha = _sha256(data)
-    key = object_key(str(rev["document_id"]), revision_id, f"released-{filename}")
+    first = rev["redline_sha256"] is None
+    key = object_key(str(rev["document_id"]), revision_id, f"released-{sha[:8]}-{filename}")
     storage.put(key, data, content_type)
     updated = documents.set_release_file(
         conn,
@@ -333,8 +337,8 @@ def replace_release_file(
         byte_size=len(data),
         original_filename=filename,
         extracted_text=extract_text(content_type, data),
-        redline_gcs_key=rev["gcs_key"],
-        redline_sha256=rev["sha256"],
+        redline_gcs_key=rev["gcs_key"] if first else rev["redline_gcs_key"],
+        redline_sha256=rev["sha256"] if first else rev["redline_sha256"],
     )
     _record(
         conn,
@@ -355,7 +359,7 @@ def release(conn: Any, actor: dict, change_id: str, *, cutin_date: date) -> dict
     released: list[dict] = []
     for rev in documents.revisions_for_change(conn, change_id):
         document_id = str(rev["document_id"])
-        conn.execute("SELECT id FROM documents WHERE id = %s::uuid FOR UPDATE", (document_id,))
+        documents.lock(conn, document_id)
         number = documents.next_revision_number(conn, document_id)
         done = documents.release(
             conn,

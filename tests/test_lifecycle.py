@@ -279,3 +279,60 @@ def test_request_changes_requires_comment(db_conn, team, storage, comment):
     with pytest.raises(LifecycleError) as e:
         lifecycle.request_changes(db_conn, team["b"], cid, google_sub="sub-b", comment=comment)
     assert e.value.code == "comment_required"
+
+
+def test_approve_and_request_changes_lock_the_change_first(db_conn, team, storage, monkeypatch):
+    cid, _ = _submitted(db_conn, team, storage)
+    calls = []
+    real = changes.lock
+    monkeypatch.setattr(changes, "lock", lambda conn, c: (calls.append(c), real(conn, c))[1])
+    _approve(db_conn, team["a"], cid)
+    assert calls == [cid]
+    lifecycle.request_changes(db_conn, team["b"], cid, google_sub="s", comment="no")
+    assert calls == [cid, cid]
+
+
+def test_replace_release_file_twice_keeps_original_redline(db_conn, team, storage):
+    cid, rev = _submitted(db_conn, team, storage)
+    _approve(db_conn, team["a"], cid)
+    _approve(db_conn, team["b"], cid)
+    keys = []
+    for text in ("signed1", "signed2"):
+        out = lifecycle.replace_release_file(
+            db_conn,
+            team["docmgr"],
+            cid,
+            str(rev["id"]),
+            filename="signed.xlsx",
+            data=xlsx_bytes(text),
+            storage=storage,
+        )
+        keys.append(out["gcs_key"])
+    assert out["redline_sha256"] == rev["sha256"]
+    assert out["redline_gcs_key"] == rev["gcs_key"]
+    assert keys[0] != keys[1]
+    assert storage.get(keys[0]) == xlsx_bytes("signed1")
+
+
+def test_non_creator_cannot_edit_initiate_change(db_conn, team, storage):
+    cid = str(_new_change(db_conn, team["creator"])["id"])
+    rev = lifecycle.attach_revision(
+        db_conn,
+        team["creator"],
+        cid,
+        filename="p.xlsx",
+        data=xlsx_bytes(),
+        storage=storage,
+        title="P",
+    )
+    other = team["a"]
+    for call in (
+        lambda: lifecycle.attach_revision(
+            db_conn, other, cid, filename="q.xlsx", data=xlsx_bytes("q"), storage=storage, title="Q"
+        ),
+        lambda: lifecycle.remove_revision(db_conn, other, cid, str(rev["id"])),
+        lambda: lifecycle.set_approvers(db_conn, other, cid, [str(team["b"]["id"])]),
+    ):
+        with pytest.raises(LifecycleError) as e:
+            call()
+        assert e.value.code == "forbidden"

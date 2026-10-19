@@ -52,6 +52,19 @@ def insert_revision(
     ).fetchone()
 
 
+def lock(conn: Any, document_id: str) -> None:
+    """Row-lock the document until the caller's transaction ends."""
+    conn.execute("SELECT id FROM documents WHERE id = %s::uuid FOR UPDATE", (document_id,))
+
+
+def delete_document(conn: Any, document_id: str) -> None:
+    conn.execute("DELETE FROM documents WHERE id = %s::uuid", (document_id,))
+
+
+def set_gcs_key(conn: Any, revision_id: str, gcs_key: str) -> None:
+    conn.execute("UPDATE revisions SET gcs_key = %s WHERE id = %s::uuid", (gcs_key, revision_id))
+
+
 def revision(conn: Any, revision_id: str) -> dict | None:
     return conn.execute("SELECT * FROM revisions WHERE id = %s::uuid", (revision_id,)).fetchone()
 
