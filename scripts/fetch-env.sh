@@ -16,7 +16,7 @@ POSTGRES_PORT=5432
 POSTGRES_DB=changectl
 POSTGRES_USER=changectl_app
 POSTGRES_PASSWORD=$(secret changectl-db-password)
-CHANGECTL_BUCKET=changectl-files-${PROJECT}
+CHANGECTL_BUCKET=${PROJECT}-files
 GOOGLE_OAUTH_CLIENT_ID=$(tfvar google_oauth_client_id)
 ENVEOF
 echo ".env written"

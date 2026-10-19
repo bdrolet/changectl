@@ -24,13 +24,17 @@ resource "google_artifact_registry_repository" "changectl" {
 }
 
 locals {
-  api_image = "${var.region}-docker.pkg.dev/${var.project_id}/changectl/changectl-api:latest"
+  # Public placeholder; CI (gcloud run deploy) owns the real image after the first deploy.
+  api_image = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
 resource "google_cloud_run_v2_service" "api" {
   name     = "changectl-api"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
+
+  # MVP: must be re-creatable.
+  deletion_protection = false
 
   template {
     service_account = google_service_account.api.email
@@ -49,7 +53,6 @@ resource "google_cloud_run_v2_service" "api" {
     }
 
     containers {
-      # Placeholder until the first image push; CI updates it afterwards.
       image = local.api_image
 
       ports {

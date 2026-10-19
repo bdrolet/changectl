@@ -1,11 +1,15 @@
 locals {
-  web_image = "${var.region}-docker.pkg.dev/${var.project_id}/changectl/changectl-web:latest"
+  # Public placeholder; CI (gcloud run deploy) owns the real image after the first deploy.
+  web_image = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
 resource "google_cloud_run_v2_service" "web" {
   name     = "changectl-web"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
+
+  # MVP: must be re-creatable.
+  deletion_protection = false
 
   template {
     service_account = google_service_account.web.email

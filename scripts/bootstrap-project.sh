@@ -28,6 +28,8 @@ gcloud services enable \
   storage.googleapis.com \
   iamcredentials.googleapis.com \
   compute.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  serviceusage.googleapis.com \
   --project="$PROJECT_ID"
 
 if gcloud storage buckets describe "gs://${STATE_BUCKET}" >/dev/null 2>&1; then
@@ -57,27 +59,42 @@ Project $PROJECT_ID is ready. Remaining steps are by hand:
 3. Search Console: verify ownership of drolet.ai as the Google account that
    runs terraform apply (needed for the Cloud Run domain mappings).
 
-4. Apply Terraform (creates the secrets, so do this before step 5):
+4. Terraform init:
      cd terraform
      cp terraform.tfvars.example terraform.tfvars   # fill in real values
      terraform init -backend-config="bucket=${STATE_BUCKET}"
-   then run /terraform-plan and /terraform-apply from this repo.
 
-5. Add the four secret values that Terraform does not manage:
+5. Create only the secrets first (the services need their versions to exist):
+     terraform apply \\
+       -target='google_secret_manager_secret.this["changectl-db-password"]' \\
+       -target='google_secret_manager_secret.this["changectl-google-oauth-client"]' \\
+       -target='google_secret_manager_secret.this["changectl-auth-secret"]' \\
+       -target='google_secret_manager_secret.this["changectl-grafana-otlp-endpoint"]' \\
+       -target='google_secret_manager_secret.this["changectl-grafana-otlp-token"]'
+
+6. Add the four secret values Terraform does not manage:
      printf '%s' '<oauth client secret>' | gcloud secrets versions add changectl-google-oauth-client --data-file=- --project=$PROJECT_ID
      openssl rand -base64 32 | gcloud secrets versions add changectl-auth-secret --data-file=- --project=$PROJECT_ID
      printf '%s' '<grafana otlp endpoint>' | gcloud secrets versions add changectl-grafana-otlp-endpoint --data-file=- --project=$PROJECT_ID
      printf '%s' '<grafana otlp token>' | gcloud secrets versions add changectl-grafana-otlp-token --data-file=- --project=$PROJECT_ID
 
-6. Migrate the database through the Cloud SQL Auth Proxy:
+7. Full apply (/terraform-plan then /terraform-apply, or terraform apply). The
+   services start on a public placeholder image.
+
+8. Push the real images:
+     gh workflow run deploy-api.yml --repo bdrolet/changectl
+     gh workflow run deploy-web.yml --repo bdrolet/changectl
+   (deploy-web.yml arrives in a later task; run it once it exists.)
+
+9. Migrate the database through the Cloud SQL Auth Proxy:
      cloud-sql-proxy ${PROJECT_ID}:${REGION}:changectl --port 5432 &
      (set the POSTGRES_* env for the owner user "changectl", then)
      python scripts/migrate_db.py
 
-7. Set the GitHub repo variable CHANGECTL_PROJECT=$PROJECT_ID so CI deploys
-   to this project.
+10. Set the GitHub repo variable CHANGECTL_PROJECT=$PROJECT_ID so CI deploys
+    to this project.
 
-8. Merge the infra repo PR "Add changectl DNS records" (bdrolet/infra) once
-   terraform output web_domain_records / api_domain_records confirm the CNAME
-   target (ghs.googlehosted.com).
+11. After terraform output web_domain_records / api_domain_records confirm the
+    CNAME target (ghs.googlehosted.com), merge the infra repo PR
+    "Add changectl DNS records" (bdrolet/infra).
 STEPS
