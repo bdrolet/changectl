@@ -271,3 +271,11 @@ def test_release_requires_doc_manager(db_conn, team, storage):
     with pytest.raises(LifecycleError) as e:
         lifecycle.release(db_conn, team["a"], cid, cutin_date=date(2026, 11, 1))
     assert _code(e) == "forbidden"
+
+
+@pytest.mark.parametrize("comment", ["", "   "])
+def test_request_changes_requires_comment(db_conn, team, storage, comment):
+    cid, _ = _submitted(db_conn, team, storage)
+    with pytest.raises(LifecycleError) as e:
+        lifecycle.request_changes(db_conn, team["b"], cid, google_sub="sub-b", comment=comment)
+    assert e.value.code == "comment_required"

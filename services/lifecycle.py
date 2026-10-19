@@ -285,7 +285,7 @@ def request_changes(
     if str(actor["id"]) not in approver_ids:
         raise LifecycleError("not_an_approver", "you are not an approver on this change")
     if not comment or not comment.strip():
-        raise LifecycleError("invalid_file", "a comment is required when requesting changes")
+        raise LifecycleError("comment_required", "a comment is required when requesting changes")
     changes.void_approvals(conn, change_id, f"changes_requested_by:{actor['email']}", _now())
     row = changes.insert_approval(
         conn,
