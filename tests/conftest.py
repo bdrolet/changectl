@@ -56,3 +56,47 @@ def db_conn(raw_conn):
     apply_sql(raw_conn, REPO_ROOT / "repo" / "roles.sql")
     raw_conn.commit()
     return raw_conn
+
+
+class ApiHarness:
+    """A TestClient plus `as_user(email)` to pick the dev-bypass identity."""
+
+    def __init__(self, client, monkeypatch):
+        self.client = client
+        self._monkeypatch = monkeypatch
+
+    def as_user(self, email: str) -> None:
+        self._monkeypatch.setenv("CHANGECTL_DEV_USER_EMAIL", email)
+
+
+@pytest.fixture
+def api_client(db_conn, monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from api.deps import get_conn_dep
+    from api.main import app
+
+    monkeypatch.delenv("K_SERVICE", raising=False)
+    app.dependency_overrides[get_conn_dep] = lambda: db_conn
+    try:
+        yield ApiHarness(TestClient(app), monkeypatch)
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def seed_users(db_conn):
+    from repo import users
+
+    spec = {
+        "creator": ("creator@example.test", "Creator", "engineering", False),
+        "quality": ("quality@example.test", "Quality", "quality", False),
+        "ops": ("ops@example.test", "Ops", "operations", False),
+        "docmgr": ("docmgr@example.test", "Doc Manager", "engineering", True),
+    }
+    return {
+        key: users.insert(
+            db_conn, email=email, name=name, role=role, is_doc_manager=dm, invited_by=None
+        )
+        for key, (email, name, role, dm) in spec.items()
+    }
