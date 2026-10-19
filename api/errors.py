@@ -12,6 +12,9 @@ STATUS_BY_CODE: dict[str, int] = {
     "locked": 409,
     "document_busy": 409,
     "type_mismatch": 409,
+    "duplicate_email": 409,
+    "pending_approver": 409,
+    "last_doc_manager": 409,
     "too_large": 413,
     "invalid_file": 415,
     "no_approvers": 422,
@@ -26,5 +29,5 @@ def install(app: FastAPI) -> None:
     async def lifecycle_error(_request: Request, exc: LifecycleError) -> JSONResponse:
         return JSONResponse(
             status_code=STATUS_BY_CODE.get(exc.code, 500),
-            content={"detail": exc.code, "message": exc.detail},
+            content={"detail": exc.code, "message": exc.detail, **(exc.extra or {})},
         )
