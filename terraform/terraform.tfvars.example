@@ -1,0 +1,12 @@
+project_id               = "changectl-xxxxxx"
+deployer_service_account = "deployer@example.test"
+google_oauth_client_id   = "000000000000-xxxx.apps.googleusercontent.com"
+
+# web_hostname      = "changectl.drolet.ai"
+# api_hostname      = "api.changectl.drolet.ai"
+# db_tier           = "db-f1-micro"
+# web_min_instances = 1   # pin to 1 for a demo
+# api_min_instances = 0
+
+app_db_password   = "change-me"
+owner_db_password = "change-me"
