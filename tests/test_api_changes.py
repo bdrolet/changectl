@@ -59,7 +59,8 @@ def test_initial_release_via_api(api_client, seed_users):
     assert r.status_code == 200, r.text
     assert r.json()["waiting_on"] == ["Ops"]
     api_client.as_user("ops@example.test")
-    r = c.post(f"/changes/{cid}/approve", json={})
+    r = c.post(f"/changes/{cid}/approve")  # no body at all
+    assert r.status_code == 200, r.text
     assert r.json()["status"] == "implementation"
     assert r.json()["waiting_on"] == []
 
@@ -117,5 +118,7 @@ def test_release_requires_cutin_422(api_client, seed_users):
         api_client.as_user(f"{who}@example.test")
         c.post(f"/changes/{cid}/approve", json={})
     api_client.as_user("docmgr@example.test")
-    assert c.post(f"/changes/{cid}/release", json={}).status_code == 422
+    r = c.post(f"/changes/{cid}/release", json={})
+    assert r.status_code == 422
+    assert r.json()["detail"] == "cutin_required"
     assert c.get(f"/changes/{cid}").json()["status"] == "implementation"

@@ -351,10 +351,12 @@ def replace_release_file(
     return updated
 
 
-def release(conn: Any, actor: dict, change_id: str, *, cutin_date: date) -> dict:
+def release(conn: Any, actor: dict, change_id: str, *, cutin_date: date | None) -> dict:
     change = _load_change(conn, change_id)
     _require_status(change, "implementation")
     _require_doc_manager(actor)
+    if cutin_date is None:
+        raise LifecycleError("cutin_required", "cutin_date is required")
     at = _now()
     released: list[dict] = []
     for rev in documents.revisions_for_change(conn, change_id):

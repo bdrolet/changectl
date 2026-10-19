@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 import clients.otel as otel
 from api import assemble
@@ -47,7 +48,7 @@ class RequestChangesBody(BaseModel):
 
 
 class ReleaseBody(BaseModel):
-    cutin_date: date
+    cutin_date: date | None = None
 
 
 class CommentBody(BaseModel):
@@ -120,19 +121,22 @@ async def attach_revision(
     conn=Depends(get_conn_dep),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
+    cid = _uid(change_id)
+    did = _uid(document_id) if document_id else None
     data = await file.read()
-    rev = lifecycle.attach_revision(
+    rev = await run_in_threadpool(
+        lifecycle.attach_revision,
         conn,
         actor,
-        _uid(change_id),
+        cid,
         filename=file.filename or "upload",
         data=data,
         storage=storage,
-        document_id=_uid(document_id) if document_id else None,
+        document_id=did,
         title=title,
     )
     otel.uploads.add(1, {"kind": "revision"})
-    return assemble.revision_out(conn, rev)
+    return await run_in_threadpool(assemble.revision_out, conn, rev)
 
 
 @router.delete("/{change_id}/revisions/{revision_id}", status_code=204)
@@ -169,12 +173,13 @@ def submit_change(
 def approve_change(
     change_id: str,
     request: Request,
-    body: ApproveBody,
+    body: ApproveBody | None = None,
     actor: dict = Depends(current_user),
     conn=Depends(get_conn_dep),
 ) -> ChangeDetail:
     cid = _uid(change_id)
-    lifecycle.approve(conn, actor, cid, google_sub=request.state.google_sub, comment=body.comment)
+    comment = body.comment if body else None
+    lifecycle.approve(conn, actor, cid, google_sub=request.state.google_sub, comment=comment)
     return _detail(conn, cid)
 
 
@@ -202,18 +207,21 @@ async def release_file(
     conn=Depends(get_conn_dep),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
+    cid = _uid(change_id)
+    rid = _uid(revision_id)
     data = await file.read()
-    rev = lifecycle.replace_release_file(
+    rev = await run_in_threadpool(
+        lifecycle.replace_release_file,
         conn,
         actor,
-        _uid(change_id),
-        _uid(revision_id),
+        cid,
+        rid,
         filename=file.filename or "upload",
         data=data,
         storage=storage,
     )
     otel.uploads.add(1, {"kind": "release_file"})
-    return assemble.revision_out(conn, rev)
+    return await run_in_threadpool(assemble.revision_out, conn, rev)
 
 
 @router.post("/{change_id}/release")
