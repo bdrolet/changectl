@@ -298,7 +298,8 @@ current revision; prior revisions are reachable from the document page.
 
 - Google Cloud OAuth client (web application) created **by hand** in the
   console of the dedicated project; Terraform cannot create OAuth clients.
-  Client id and secret go in Secret Manager (`changectl-google-oauth-client`).
+  The client secret goes in Secret Manager (`changectl-google-oauth-client`);
+  the client id is a plain Terraform variable.
   Consent screen: app name `changectl`, external, publishing status "In
   production" so any Google account can attempt sign-in (the allowlist does
   the gating). Scopes: `openid email profile` only, which need no Google
@@ -332,7 +333,7 @@ current revision; prior revisions are reachable from the document page.
   2, env `API_URL`, `AUTH_SECRET`, OAuth client id and secret from Secret
   Manager, `AUTH_URL=https://changectl.drolet.ai`.
 - `secrets.tf`: all owned here — `changectl-db-password`,
-  `changectl-google-oauth-client` (JSON: id + secret), `changectl-auth-secret`,
+  `changectl-google-oauth-client` (the client secret), `changectl-auth-secret`,
   `changectl-grafana-otlp-endpoint`, `changectl-grafana-otlp-token`. The
   Grafana values are copies of the shared ones, entered by hand once, so no
   cross-project secret reads exist.
