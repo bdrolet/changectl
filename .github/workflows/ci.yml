@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: changectl
+          POSTGRES_USER: changectl
+          POSTGRES_PASSWORD: changectl
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U changectl"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format check
+        run: ruff format --check .
+
+      - name: Type check
+        run: mypy clients/ services/ repo/ models/ api/
+
+      - name: Tests
+        env:
+          CHANGECTL_TEST_DSN: postgresql://changectl:changectl@localhost:5432/changectl
+        run: pytest tests/ -q
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "~1.5"
+
+      - name: Terraform validate
+        if: hashFiles('terraform/*.tf') != ''
+        working-directory: terraform
+        run: |
+          terraform init -backend=false
+          terraform validate

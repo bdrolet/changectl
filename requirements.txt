@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+psycopg[binary]>=3.1
+pg8000>=1.31
+cloud-sql-python-connector>=1.7
+google-auth>=2.30
+google-cloud-storage>=2.16
+pymupdf>=1.24
+python-docx>=1.1
+openpyxl>=3.1
+python-multipart>=0.0.9
+opentelemetry-sdk>=1.24
+opentelemetry-exporter-otlp-proto-http>=1.24
+python-dotenv>=1.0
