@@ -1,6 +1,7 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
 
+import { isExpired, refreshGoogleToken } from "@/lib/google-refresh";
 import type { UserOut } from "@/lib/types";
 
 declare module "next-auth" {
@@ -27,11 +28,17 @@ declare module "@auth/core/jwt" {
 }
 
 export const authConfig: NextAuthConfig = {
-  providers: [Google],
+  providers: [
+    Google({
+      authorization: {
+        params: { access_type: "offline", prompt: "select_account consent" },
+      },
+    }),
+  ],
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   pages: { signIn: "/signin" },
   callbacks: {
-    async signIn({ account }) {
+    async signIn({ account, profile }) {
       if (!account?.id_token) return "/signin?error=api";
       let response: Response;
       try {
@@ -42,7 +49,12 @@ export const authConfig: NextAuthConfig = {
       } catch {
         return "/signin?error=api";
       }
-      if (response.status === 403) return "/not-invited";
+      if (response.status === 403) {
+        const email = typeof profile?.email === "string" ? profile.email : "";
+        return email
+          ? `/not-invited?email=${encodeURIComponent(email)}`
+          : "/not-invited";
+      }
       if (response.status !== 200) return "/signin?error=api";
       // Cached on the token in the jwt callback below.
       (account as { user?: UserOut }).user = (await response.json()) as UserOut;
@@ -57,27 +69,12 @@ export const authConfig: NextAuthConfig = {
         delete token.error;
         return token;
       }
-      if (
-        token.expires_at !== undefined &&
-        Date.now() / 1000 > token.expires_at - 60
-      ) {
+      if (!token.error && isExpired(token.expires_at)) {
         try {
-          const response = await fetch("https://oauth2.googleapis.com/token", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-              client_id: process.env.AUTH_GOOGLE_ID ?? "",
-              client_secret: process.env.AUTH_GOOGLE_SECRET ?? "",
-              grant_type: "refresh_token",
-              refresh_token: token.refresh_token ?? "",
-            }),
-          });
-          const data = await response.json();
-          if (!response.ok || !data.id_token) throw new Error("refresh failed");
-          token.id_token = data.id_token;
-          token.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
-          if (data.refresh_token) token.refresh_token = data.refresh_token;
-          delete token.error;
+          const fresh = await refreshGoogleToken(token.refresh_token ?? "");
+          token.id_token = fresh.id_token;
+          token.expires_at = fresh.expires_at;
+          if (fresh.refresh_token) token.refresh_token = fresh.refresh_token;
         } catch {
           token.error = "RefreshFailed";
         }

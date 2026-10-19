@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next-auth", () => ({
   default: () => ({ handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() }),
 }));
-vi.mock("next-auth/providers/google", () => ({ default: {} }));
+vi.mock("next-auth/providers/google", () => ({
+  default: (opts: unknown) => opts,
+}));
 
 import { authConfig } from "@/auth";
 
@@ -27,5 +29,12 @@ describe("session callback", () => {
     expect(session).not.toHaveProperty("idToken");
     expect(JSON.stringify(session)).not.toContain("secret");
     expect(session.user).toMatchObject({ id: "u1", isDocManager: true });
+  });
+
+  it("requests offline access so a refresh token is issued", () => {
+    const provider = authConfig.providers![0] as {
+      authorization: { params: Record<string, string> };
+    };
+    expect(provider.authorization.params.access_type).toBe("offline");
   });
 });
