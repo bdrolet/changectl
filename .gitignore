@@ -1,0 +1,11 @@
+.claude/worktrees/
+.superpowers/
+.env
+.env.*
+!.env.example
+*.tfvars
+.venv/
+__pycache__/
+.storage/
+node_modules/
+.next/
