@@ -122,3 +122,34 @@ def test_release_requires_cutin_422(api_client, seed_users):
     assert r.status_code == 422
     assert r.json()["detail"] == "cutin_required"
     assert c.get(f"/changes/{cid}").json()["status"] == "implementation"
+
+
+def test_next_revision_number_and_superseded(api_client, seed_users):
+    c = api_client.client
+    cid = _submitted(api_client, seed_users)
+    rev = c.get(f"/changes/{cid}").json()["revisions"][0]
+    assert rev["next_revision_number"] == 1
+    assert rev["superseded_at"] is None
+
+    api_client.as_user("quality@example.test")
+    assert c.post(f"/changes/{cid}/approve", json={}).status_code == 200
+    api_client.as_user("ops@example.test")
+    assert c.post(f"/changes/{cid}/approve").status_code == 200
+    api_client.as_user("docmgr@example.test")
+    r = c.post(f"/changes/{cid}/release", json={"cutin_date": "2026-11-01"})
+    assert r.status_code == 200, r.text
+    released = r.json()["revisions"][0]
+    assert released["revision_number"] == 1
+    assert released["next_revision_number"] is None
+
+    api_client.as_user("creator@example.test")
+    cid2 = _create(c)
+    r = c.post(
+        f"/changes/{cid2}/revisions",
+        files={"file": ("proc.xlsx", _xlsx(), XLSX)},
+        data={"document_id": released["document_id"]},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["next_revision_number"] == 2
+    detail = c.get(f"/changes/{cid2}").json()
+    assert detail["revisions"][0]["next_revision_number"] == 2

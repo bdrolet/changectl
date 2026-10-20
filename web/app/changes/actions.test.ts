@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 import { ApiError, apiFetch } from "@/lib/api";
 import { describe as describeCode } from "@/lib/errors";
 
-import { attachRevision } from "./actions";
+import { attachRevision, releaseChange } from "./actions";
 
 function form(): FormData {
   const f = new FormData();
@@ -48,5 +48,29 @@ describe("attachRevision", () => {
   it("rethrows non-API errors", async () => {
     vi.mocked(apiFetch).mockRejectedValueOnce(new Error("boom"));
     await expect(attachRevision("c1", form())).rejects.toThrow("boom");
+  });
+});
+
+describe("releaseChange", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns ok and revalidates on success", async () => {
+    vi.mocked(apiFetch).mockResolvedValueOnce({});
+    expect(await releaseChange("c1", "2026-11-01")).toEqual({ ok: true });
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/changes/c1/release",
+      expect.objectContaining({ body: JSON.stringify({ cutin_date: "2026-11-01" }) }),
+    );
+    expect(revalidatePath).toHaveBeenCalledWith("/documents");
+  });
+
+  it("describes cutin_required", async () => {
+    vi.mocked(apiFetch).mockRejectedValueOnce(
+      new ApiError(422, "cutin_required", "x"),
+    );
+    expect(await releaseChange("c1", "")).toEqual({
+      ok: false,
+      error: describeCode("cutin_required"),
+    });
   });
 });

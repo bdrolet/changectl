@@ -53,6 +53,8 @@ class RevisionOut(_Out):
     uploaded_by: str
     uploaded_at: datetime
     released_at: datetime | None
+    superseded_at: datetime | None
+    next_revision_number: int | None
 
 
 class ApproverOut(_Out):

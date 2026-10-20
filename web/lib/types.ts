@@ -34,6 +34,8 @@ export interface RevisionOut {
   uploaded_by: string;
   uploaded_at: string;
   released_at: string | null;
+  superseded_at: string | null;
+  next_revision_number: number | null;
 }
 
 export interface ApproverOut {

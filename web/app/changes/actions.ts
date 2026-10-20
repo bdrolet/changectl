@@ -25,6 +25,7 @@ function fields(form: FormData) {
 function refresh(id: string) {
   revalidatePath("/changes");
   revalidatePath(`/changes/${id}`);
+  revalidatePath("/documents");
 }
 
 async function run(id: string, call: () => Promise<unknown>): Promise<ActionResult> {
@@ -146,4 +147,30 @@ export async function addComment(
 ): Promise<ActionResult> {
   if (!body.trim()) return { ok: false, error: "Write a comment first." };
   return run(id, () => apiFetch(path(id, "/comments"), post({ body })));
+}
+
+export async function replaceReleaseFile(
+  id: string,
+  rid: string,
+  form: FormData,
+): Promise<ActionResult> {
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Choose a file to attach." };
+  }
+  const body = new FormData();
+  body.set("file", file);
+  return run(id, () =>
+    apiFetch(path(id, `/revisions/${encodeURIComponent(rid)}/release-file`), {
+      method: "POST",
+      body,
+    }),
+  );
+}
+
+export async function releaseChange(
+  id: string,
+  cutinDate: string,
+): Promise<ActionResult> {
+  return run(id, () => apiFetch(path(id, "/release"), post({ cutin_date: cutinDate })));
 }

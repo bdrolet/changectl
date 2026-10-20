@@ -33,6 +33,12 @@ def revision_out(conn: Any, row: dict) -> RevisionOut:
         uploaded_by=str(row["uploaded_by"]),
         uploaded_at=row["uploaded_at"],
         released_at=row["released_at"],
+        superseded_at=row.get("superseded_at"),
+        next_revision_number=(
+            documents.next_revision_number(conn, str(row["document_id"]))
+            if row["released_at"] is None
+            else None
+        ),
     )
 
 
@@ -194,6 +200,8 @@ def document_detail_out(detail: dict) -> DocumentDetail:
             uploaded_by=str(r["uploaded_by"]),
             uploaded_at=r["uploaded_at"],
             released_at=r["released_at"],
+            superseded_at=r["superseded_at"],
+            next_revision_number=None,
             change_id=str(r["change_id"]),
             change_number=r["change_display"],
             change_title=r["change_title"],

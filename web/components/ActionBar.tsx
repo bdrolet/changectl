@@ -12,6 +12,7 @@ import {
 import type { ActionResult } from "@/app/changes/actions";
 import { Alert } from "@/components/Alert";
 import { ConfirmSign } from "@/components/ConfirmSign";
+import { ReleaseModal } from "@/components/ReleaseModal";
 import type { ChangeDetail } from "@/lib/types";
 
 export interface Viewer {
@@ -36,6 +37,7 @@ export function ActionBar({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [signing, setSigning] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [mode, setMode] = useState<"comment" | "changes" | null>(null);
   const [text, setText] = useState("");
 
@@ -104,8 +106,13 @@ export function ActionBar({
           </>
         )}
         {change.status === "implementation" && viewer.isDocManager && (
-          <button type="button" disabled className={SECONDARY}>
-            Release (next task)
+          <button
+            type="button"
+            disabled={pending}
+            className={PRIMARY}
+            onClick={() => setReleasing(true)}
+          >
+            Release
           </button>
         )}
         {canComment && (
@@ -149,6 +156,13 @@ export function ActionBar({
       )}
 
       <Alert message={signing ? null : error} />
+
+      <ReleaseModal
+        open={releasing}
+        changeId={change.id}
+        revisions={change.revisions}
+        onClose={() => setReleasing(false)}
+      />
 
       <ConfirmSign
         open={signing}
