@@ -46,6 +46,21 @@ CHANGECTL_PROJECT=<project-id> scripts/fetch-env.sh
 (set -a; source .env; set +a; .venv/bin/uvicorn api.main:app --port 8080)
 ```
 
+## Demo
+
+`scripts/seed_demo.py` fills a demo company: three released documents (Prototype BOM, Cable Assembly Spec, Supplier Spec - Connector), and one change mid-approval. It is idempotent, keyed on change titles.
+
+```bash
+SEED_TESA_EMAIL=<email> SEED_BEN_EMAIL=<email> SEED_SECOND_EMAIL=<email> \
+  .venv/bin/python scripts/seed_demo.py
+```
+
+`SEED_TESA_EMAIL` and `SEED_BEN_EMAIL` are required (the script exits with status 2 without them); `SEED_SECOND_EMAIL` is optional. Walkthrough and pre-demo checklist: [docs/demo-script.md](docs/demo-script.md).
+
+## Compliance posture
+
+The MVP demonstrates unique user identity through Google sign-in, electronic signatures bound to file hashes, an append-only audit trail and revision history. It is not validated and does not claim 21 CFR Part 11 conformance.
+
 ## Deployment
 
 Pushing to `main` deploys the API through `.github/workflows/deploy-api.yml`: it builds the image, pushes it to Artifact Registry, deploys `changectl-api` to Cloud Run and curls `/health`. The workflow reads the GCP project from the `CHANGECTL_PROJECT` repository variable.
