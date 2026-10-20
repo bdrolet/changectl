@@ -17,9 +17,21 @@ export async function GET(
       `/revisions/${encodeURIComponent(revisionId)}/download?which=${which}`,
       { raw: true },
     );
-    const location = response.headers.get("location");
-    if (response.status === 302 && location) {
-      return NextResponse.redirect(location, 302);
+    if (response.status === 401) {
+      return NextResponse.redirect(new URL("/signin", request.url), 302);
+    }
+    if (response.status === 302) {
+      const location = response.headers.get("location");
+      if (!location) {
+        return NextResponse.json(
+          {
+            detail: "bad_gateway",
+            message: "Upstream redirect had no Location",
+          },
+          { status: 502 },
+        );
+      }
+      return NextResponse.redirect(new URL(location, request.url), 302);
     }
     const body: unknown = await response.json().catch(() => ({}));
     return NextResponse.json(body, { status: response.status });
