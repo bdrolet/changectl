@@ -24,6 +24,8 @@ export const CODES = [
   "invalid_token",
   "not_invited",
   "doc_manager_required",
+  "email_unverified",
+  "identity_mismatch",
 ] as const;
 
 const COPY: Record<(typeof CODES)[number], string> = {
@@ -36,7 +38,7 @@ const COPY: Record<(typeof CODES)[number], string> = {
   no_approvers: "Pick at least one approver before submitting.",
   no_revisions: "Attach at least one file before submitting.",
   invalid_file: "That file couldn't be read. Upload a valid PDF, DOCX or XLSX.",
-  too_large: "Files must be 25 MB or smaller.",
+  too_large: "Files must be 25 MB or smaller",
   type_mismatch:
     "A new revision must be the same file type as the document it replaces.",
   document_busy: "That document already has a revision in an open change.",
@@ -50,6 +52,9 @@ const COPY: Record<(typeof CODES)[number], string> = {
   invalid_token: "Your session has expired. Sign in again.",
   not_invited: "You're not invited to this workspace.",
   doc_manager_required: "Only doc managers can do that.",
+  email_unverified: "Your Google email address isn't verified.",
+  identity_mismatch:
+    "This Google account doesn't match the one that first signed in for your email.",
 };
 
 const FALLBACK = "Something went wrong.";

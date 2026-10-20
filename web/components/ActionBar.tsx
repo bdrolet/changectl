@@ -86,7 +86,10 @@ export function ActionBar({
               type="button"
               disabled={pending}
               className={PRIMARY}
-              onClick={() => setSigning(true)}
+              onClick={() => {
+                setError(null);
+                setSigning(true);
+              }}
             >
               Approve
             </button>
@@ -145,7 +148,7 @@ export function ActionBar({
         </form>
       )}
 
-      <Alert message={error} />
+      <Alert message={signing ? null : error} />
 
       <ConfirmSign
         open={signing}
@@ -154,7 +157,10 @@ export function ActionBar({
         number={change.number}
         title={change.title}
         pending={pending}
-        onCancel={() => setSigning(false)}
+        error={signing ? error : null}
+        onCancel={() => {
+          if (!pending) setSigning(false);
+        }}
         onConfirm={() => run(() => approveChange(change.id))}
       />
     </div>

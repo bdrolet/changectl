@@ -54,7 +54,8 @@ export default async function EditChangePage({
     );
   }
 
-  if (change.status !== "initiate") redirect(`/changes/${id}`);
+  if (change.status !== "initiate" || change.created_by !== viewerId)
+    redirect(`/changes/${id}`);
 
   const released = documents.filter((d) => d.current_revision_id !== null);
   const candidates = users.filter((u) => !u.deactivated && u.id !== viewerId);
