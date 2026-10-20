@@ -1,6 +1,9 @@
+import io
+import subprocess
 import sys
 from pathlib import Path
 
+import openpyxl
 import pytest
 
 from clients.storage import LocalStorage
@@ -60,3 +63,56 @@ def test_seed_requires_emails(db_conn, tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         seed_demo.main(conn=db_conn, storage=LocalStorage(tmp_path))
     assert exc.value.code == 2
+
+
+def _open_change_approvers(conn) -> list[dict]:
+    return conn.execute(
+        """
+        SELECT u.email,
+               EXISTS (
+                   SELECT 1 FROM approvals p
+                   WHERE p.change_id = a.change_id AND p.user_id = a.user_id
+                     AND p.decision = 'approved' AND p.voided_at IS NULL
+               ) AS signed
+        FROM approvers a
+        JOIN changes c ON c.id = a.change_id
+        JOIN users u ON u.id = a.user_id
+        WHERE c.title = %s
+        ORDER BY u.email
+        """,
+        (seed_demo.OPEN_CHANGE,),
+    ).fetchall()
+
+
+@pytest.mark.parametrize(
+    "second, live", [("second@example.test", "second@example.test"), (None, "tesa@example.test")]
+)
+def test_open_change_has_a_live_pending_approver(db_conn, tmp_path, monkeypatch, second, live):
+    monkeypatch.setenv("SEED_TESA_EMAIL", "tesa@example.test")
+    monkeypatch.setenv("SEED_BEN_EMAIL", "ben@example.test")
+    if second:
+        monkeypatch.setenv("SEED_SECOND_EMAIL", second)
+    else:
+        monkeypatch.delenv("SEED_SECOND_EMAIL", raising=False)
+    seed_demo.main(conn=db_conn, storage=LocalStorage(tmp_path))
+    rows = _open_change_approvers(db_conn)
+    pending_live = [
+        r["email"] for r in rows if not r["signed"] and not r["email"].endswith("@demo.example")
+    ]
+    assert pending_live == [live]
+    assert {r["email"]: r["signed"] for r in rows}["marcus@demo.example"] is True
+
+
+def test_demo_files_cli_writes_the_presenter_files(tmp_path):
+    script = Path(__file__).resolve().parent.parent / "scripts" / "demo_files.py"
+    subprocess.run([sys.executable, str(script), "--out", str(tmp_path)], check=True)
+    names = sorted(p.name for p in tmp_path.iterdir())
+    assert names == [
+        "Cable Assembly Spec.docx",
+        "Prototype BOM rev2.xlsx",
+        "Prototype BOM.xlsx",
+        "Supplier Spec - Connector.pdf",
+        "Test Fixture Spec.docx",
+    ]
+    rev2 = openpyxl.load_workbook(io.BytesIO((tmp_path / "Prototype BOM rev2.xlsx").read_bytes()))
+    assert "Changes" in rev2.sheetnames

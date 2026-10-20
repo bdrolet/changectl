@@ -72,7 +72,7 @@ SEED_TESA_EMAIL=<email> SEED_BEN_EMAIL=<email> SEED_SECOND_EMAIL=<email> \
   .venv/bin/python scripts/seed_demo.py
 ```
 
-`SEED_TESA_EMAIL` and `SEED_BEN_EMAIL` are required (the script exits with status 2 without them); `SEED_SECOND_EMAIL` is optional. Walkthrough and pre-demo checklist: [docs/demo-script.md](docs/demo-script.md).
+`SEED_TESA_EMAIL` and `SEED_BEN_EMAIL` are required (the script exits with status 2 without them); `SEED_SECOND_EMAIL` is optional. The open change's pending approver is the second account when it is set, otherwise Tesa, so it can be signed live. `.venv/bin/python scripts/demo_files.py --out <dir>` writes the demo files the presenter uploads. Walkthrough and pre-demo checklist: [docs/demo-script.md](docs/demo-script.md).
 
 ## Compliance posture
 

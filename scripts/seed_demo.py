@@ -1,5 +1,9 @@
 """Seed a demo company: three released documents and one change mid-approval.
 
+The open change's approvers are Marcus (a persona, already signed) and one live
+account that can sign in during the demo: the second account when
+SEED_SECOND_EMAIL is set, otherwise Tesa.
+
 Needs SEED_TESA_EMAIL and SEED_BEN_EMAIL (optional SEED_SECOND_EMAIL) in the
 environment, plus the usual POSTGRES_* / CHANGECTL_BUCKET settings. Safe to run
 twice: a change whose title already exists is skipped.
@@ -23,7 +27,7 @@ from repo import users  # noqa: E402
 from services import lifecycle  # noqa: E402
 
 # Personas are history only: they never sign in, so their approvals carry a
-# synthetic subject.
+# synthetic subject. The open change's pending approver is always a live account.
 PERSONAS = {
     "Priya": ("priya@demo.example", "engineering"),
     "Marcus": ("marcus@demo.example", "operations"),
@@ -112,10 +116,11 @@ def main(conn: Any = None, storage: Storage | None = None) -> dict[str, int]:
 
     created: list[dict] = []
     try:
-        _ensure_user(conn, tesa_email, "Tesa", "quality", True)
+        tesa, _ = _ensure_user(conn, tesa_email, "Tesa", "quality", True)
         ben, _ = _ensure_user(conn, ben_email, "Ben", "engineering", True)
+        live_approver = tesa
         if second_email:
-            _ensure_user(conn, second_email, "Second account", "operations")
+            live_approver, _ = _ensure_user(conn, second_email, "Second account", "operations")
         people = {
             name: _ensure_user(conn, email, name, role)[0]
             for name, (email, role) in PERSONAS.items()
@@ -182,7 +187,7 @@ def main(conn: Any = None, storage: Storage | None = None) -> dict[str, int]:
                 storage=storage,
                 document_id=_document_id(conn, BOM_TITLE),
             )
-            lifecycle.set_approvers(conn, priya, cid, [str(marcus["id"]), str(dana["id"])])
+            lifecycle.set_approvers(conn, priya, cid, [str(marcus["id"]), str(live_approver["id"])])
             lifecycle.submit(conn, priya, cid)
             lifecycle.approve(
                 conn, marcus, cid, google_sub="seed:Marcus", comment="Supply confirmed."

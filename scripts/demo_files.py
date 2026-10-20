@@ -1,6 +1,14 @@
-"""Demo documents, built in memory: a BOM (two versions), a cable spec and a connector spec."""
+"""Demo documents, built in memory: a BOM (two versions), a cable spec, a connector spec
+and a test fixture spec for the live initial-release demo.
 
+    python scripts/demo_files.py --out <dir>
+
+writes them to <dir> for the presenter (see docs/demo-script.md).
+"""
+
+import argparse
 import io
+from pathlib import Path
 
 import docx
 import openpyxl
@@ -81,3 +89,39 @@ def connector_spec_pdf() -> bytes:
     data: bytes = doc.tobytes()
     doc.close()
     return data
+
+
+def fixture_spec_docx() -> bytes:
+    """A document the seed never creates, for the live initial-release demo."""
+    d = docx.Document()
+    d.add_heading("Test Fixture Spec", level=1)
+    d.add_paragraph("Scope: bench fixture for the end-of-line continuity test of cable C1.")
+    d.add_paragraph("The fixture mates with connector J4 and checks all 10 conductors.")
+    d.add_paragraph("Pass criterion: every conductor below 1 Ohm; no shorts between pins.")
+    buf = io.BytesIO()
+    d.save(buf)
+    return buf.getvalue()
+
+
+PRESENTER_FILES = {
+    "Prototype BOM.xlsx": lambda: bom_xlsx(1),
+    "Prototype BOM rev2.xlsx": lambda: bom_xlsx(2),
+    "Cable Assembly Spec.docx": cable_spec_docx,
+    "Supplier Spec - Connector.pdf": connector_spec_pdf,
+    "Test Fixture Spec.docx": fixture_spec_docx,
+}
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Write the demo files to a directory.")
+    parser.add_argument("--out", required=True, type=Path, help="directory to write into")
+    args = parser.parse_args(argv)
+    args.out.mkdir(parents=True, exist_ok=True)
+    for name, build in PRESENTER_FILES.items():
+        path = args.out / name
+        path.write_bytes(build())
+        print(f"wrote {path}")
+
+
+if __name__ == "__main__":
+    main()
