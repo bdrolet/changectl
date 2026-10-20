@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bytes, dateOnly, relativeAge } from "@/lib/format";
+import { bytes, dateOnly, relativeAge, timeUtc } from "@/lib/format";
 
 const NOW = Date.parse("2026-06-10T12:00:00Z");
 const ago = (s: number) => new Date(NOW - s * 1000).toISOString();
@@ -28,5 +28,11 @@ describe("bytes", () => {
 describe("dateOnly", () => {
   it("is the UTC date", () => {
     expect(dateOnly("2026-06-08T23:58:52Z")).toBe("2026-06-08");
+  });
+});
+
+describe("timeUtc", () => {
+  it("formats hours and minutes in UTC", () => {
+    expect(timeUtc("2026-10-19T07:05:59Z")).toBe("07:05 UTC");
   });
 });

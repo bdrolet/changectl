@@ -19,3 +19,7 @@ export function bytes(n: number): string {
 export function dateOnly(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
+
+export function timeUtc(iso: string): string {
+  return `${new Date(iso).toISOString().slice(11, 16)} UTC`;
+}

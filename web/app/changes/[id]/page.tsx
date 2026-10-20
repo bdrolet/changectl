@@ -91,7 +91,10 @@ export default async function ChangeDetailPage({
         <RevisionList revisions={change.revisions} />
       </Section>
       <Section title="Approvers">
-        <ApproverList approvers={change.approvers} />
+        <ApproverList
+          approvers={change.approvers}
+          approvals={change.approvals}
+        />
       </Section>
       <Section title="Comments">
         <CommentList comments={change.comments} />
