@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
+import { auth } from "@/auth";
+import { ActionBar } from "@/components/ActionBar";
 import { ApproverList } from "@/components/ApproverList";
 import { CommentList } from "@/components/CommentList";
 import { HistoryPanel } from "@/components/HistoryPanel";
@@ -30,6 +32,7 @@ export default async function ChangeDetailPage({
   params,
 }: PageProps<"/changes/[id]">) {
   const { id } = await params;
+  const session = await auth();
 
   let change: ChangeDetail;
   try {
@@ -63,7 +66,17 @@ export default async function ChangeDetailPage({
         <StatusPill status={change.status} />
       </header>
 
-      <div id="actions" />
+      {session?.user && (
+        <ActionBar
+          change={change}
+          viewer={{
+            id: session.user.id,
+            name: session.user.name ?? "",
+            email: session.user.email ?? "",
+            isDocManager: session.user.isDocManager,
+          }}
+        />
+      )}
 
       <dl className="space-y-3 text-sm">
         {fields.map(([label, value]) => (
