@@ -73,3 +73,12 @@ def test_one_live_approval_per_user(db_conn):
         db_conn.execute(sql, (change_id, approver, None))
     db_conn.execute("ROLLBACK TO SAVEPOINT s")
     db_conn.execute(sql, (change_id, approver, "2026-01-01T00:00:00Z"))
+
+
+def test_roles_sql_never_changes_an_existing_role_password(db_conn):
+    """Terraform owns the deployed password; re-running roles.sql must not reset it."""
+    roles = (SCHEMA.parent / "roles.sql").read_text()
+    db_conn.execute(roles.replace("__APP_PASSWORD__", "throwaway"))
+    db_conn.commit()
+    with psycopg.connect(_app_dsn(), autocommit=True) as app:
+        assert app.execute("SELECT 1").fetchone() == (1,)

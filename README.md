@@ -12,7 +12,10 @@ A Next.js web app talks to a FastAPI API, which stores data in Postgres and file
 docker compose up -d
 python3.13 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
-# Migrate and seed a user (dev@example.test matches .env.local.example)
+# Migrate and seed a user (dev@example.test matches .env.local.example).
+# Locally the changectl_app role does not exist yet, so migrate creates it with
+# CHANGECTL_APP_PASSWORD=app. In the deployed project Terraform creates the role
+# and owns its password: run migrate there without CHANGECTL_APP_PASSWORD.
 export POSTGRES_HOST=localhost POSTGRES_PORT=5434 POSTGRES_DB=changectl POSTGRES_USER=changectl POSTGRES_PASSWORD=changectl
 CHANGECTL_APP_PASSWORD=app .venv/bin/python scripts/migrate_db.py
 .venv/bin/python scripts/add_user.py dev@example.test "Dev User" --doc-manager
@@ -29,6 +32,20 @@ CHANGECTL_TEST_DSN=postgresql://changectl:changectl@localhost:5434/changectl .ve
 ```
 
 **`scripts/migrate_db.py` runs only through a direct Postgres connection (local compose or the Cloud SQL Auth Proxy), never through the pg8000 connector path, because the connector cannot run multi-statement SQL files.**
+
+### Web app
+
+The Next.js app in `web/` signs in with Google through Auth.js and calls the API at `API_URL` (`http://localhost:8080`, the uvicorn above):
+
+```bash
+cd web
+npm ci
+cp .env.example .env.local   # fill in AUTH_SECRET and the Google OAuth client
+npm run dev                  # http://localhost:3000
+npm run lint && npm test     # checks
+```
+
+### API container
 
 To run the container instead of uvicorn:
 
@@ -63,8 +80,13 @@ The MVP demonstrates unique user identity through Google sign-in, electronic sig
 
 ## Deployment
 
-Pushing to `main` deploys the API through `.github/workflows/deploy-api.yml`: it builds the image, pushes it to Artifact Registry, deploys `changectl-api` to Cloud Run and curls `/health`. The workflow reads the GCP project from the `CHANGECTL_PROJECT` repository variable.
+Two workflows deploy on pushes to `main` that touch their paths, and both read the GCP project from the `CHANGECTL_PROJECT` repository variable:
+
+- `.github/workflows/deploy-api.yml` runs when the API code changes: it builds the API image, pushes it to Artifact Registry, deploys `changectl-api` to Cloud Run and curls `/health`.
+- `.github/workflows/deploy-web.yml` runs when `web/` changes: it builds the web image, pushes it, deploys `changectl-web` to Cloud Run and checks `/signin` returns 200.
+
+Either can also be run by hand with `gh workflow run <file> --repo bdrolet/changectl`.
 
 ## First-time setup
 
-`scripts/bootstrap-project.sh` creates the GCP project and its infrastructure. It is forthcoming (Task 16).
+`scripts/bootstrap-project.sh` creates the dedicated GCP project, links billing, enables the APIs and creates the Terraform state bucket, then prints the remaining by-hand steps: OAuth client, secrets, Terraform apply, the first deploys of both workflows, and the database migration. Terraform creates the `changectl_app` Cloud SQL user and owns its password, so the migration there runs without `CHANGECTL_APP_PASSWORD`.
