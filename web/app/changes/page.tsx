@@ -47,7 +47,15 @@ export default async function ChangesPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Changes</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Changes</h1>
+        <Link
+          href="/changes/new"
+          className="rounded bg-zinc-900 px-3 py-1.5 text-sm text-white"
+        >
+          New change
+        </Link>
+      </div>
       <nav className="flex gap-4 border-b border-zinc-200 text-sm">
         {TABS.map((t) => {
           const active = t.status === status;

@@ -81,18 +81,18 @@ Project $PROJECT_ID is ready. Remaining steps are by hand:
 7. Full apply (/terraform-plan then /terraform-apply, or terraform apply). The
    services start on a public placeholder image.
 
-8. Push the real images:
+8. Set the GitHub repo variable CHANGECTL_PROJECT=$PROJECT_ID so CI deploys
+    to this project.
+
+9. Push the real images:
      gh workflow run deploy-api.yml --repo bdrolet/changectl
      gh workflow run deploy-web.yml --repo bdrolet/changectl
    (deploy-web.yml arrives in a later task; run it once it exists.)
 
-9. Migrate the database through the Cloud SQL Auth Proxy:
+10. Migrate the database through the Cloud SQL Auth Proxy:
      cloud-sql-proxy ${PROJECT_ID}:${REGION}:changectl --port 5432 &
      (set the POSTGRES_* env for the owner user "changectl", then)
      python scripts/migrate_db.py
-
-10. Set the GitHub repo variable CHANGECTL_PROJECT=$PROJECT_ID so CI deploys
-    to this project.
 
 11. After terraform output web_domain_records / api_domain_records confirm the
     CNAME target (ghs.googlehosted.com), merge the infra repo PR
