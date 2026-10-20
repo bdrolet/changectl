@@ -139,12 +139,13 @@ def release(
     revision_number: int,
     released_by: str,
     released_at: Any,
-) -> dict:
+) -> dict | None:
+    """Release a pending revision; None when it was already released."""
     return conn.execute(
         """
         UPDATE revisions
         SET revision_number = %s, released_by = %s::uuid, released_at = %s::timestamptz
-        WHERE id = %s::uuid
+        WHERE id = %s::uuid AND released_at IS NULL
         RETURNING *
         """,
         (revision_number, released_by, released_at, revision_id),

@@ -336,3 +336,65 @@ def test_non_creator_cannot_edit_initiate_change(db_conn, team, storage):
         with pytest.raises(LifecycleError) as e:
             call()
         assert e.value.code == "forbidden"
+
+
+def test_final_approver_double_approve_returns_existing_row(db_conn, team, storage):
+    change = _new_change(db_conn, team["creator"])
+    cid = str(change["id"])
+    lifecycle.attach_revision(
+        db_conn,
+        team["creator"],
+        cid,
+        filename="p.xlsx",
+        data=xlsx_bytes(),
+        storage=storage,
+        title="P",
+    )
+    lifecycle.set_approvers(db_conn, team["creator"], cid, [str(team["a"]["id"])])
+    lifecycle.submit(db_conn, team["creator"], cid)
+    first = _approve(db_conn, team["a"], cid)
+    assert changes.get(db_conn, cid)["status"] == "implementation"
+    second = _approve(db_conn, team["a"], cid)
+    assert second["id"] == first["id"]
+    assert len(changes.live_approvals(db_conn, cid)) == 1
+    assert [e["action"] for e in events.for_change(db_conn, cid)].count("change.approved") == 1
+
+
+def test_release_twice_fails_cleanly_without_renumbering(db_conn, team, storage):
+    cid, rev = _submitted(db_conn, team, storage)
+    _approve(db_conn, team["a"], cid)
+    _approve(db_conn, team["b"], cid)
+    lifecycle.release(db_conn, team["docmgr"], cid, cutin_date=date(2026, 11, 1))
+    with pytest.raises(LifecycleError) as e:
+        lifecycle.release(db_conn, team["docmgr"], cid, cutin_date=date(2026, 11, 2))
+    assert _code(e) == "wrong_status"
+    # Simulate a racing release that read 'implementation' before the first committed:
+    # the revision is already released, so the guarded UPDATE matches nothing.
+    db_conn.execute("UPDATE changes SET status = 'implementation' WHERE id = %s::uuid", (cid,))
+    with pytest.raises(LifecycleError) as e:
+        lifecycle.release(db_conn, team["docmgr"], cid, cutin_date=date(2026, 11, 2))
+    assert _code(e) == "wrong_status"
+    assert documents.revision(db_conn, str(rev["id"]))["revision_number"] == 1
+
+
+def test_submit_release_and_replace_lock_the_change_first(db_conn, team, storage, monkeypatch):
+    calls = []
+    real = changes.lock
+    monkeypatch.setattr(changes, "lock", lambda conn, c: (calls.append(c), real(conn, c))[1])
+    cid, rev = _submitted(db_conn, team, storage)
+    assert calls == [cid]
+    _approve(db_conn, team["a"], cid)
+    _approve(db_conn, team["b"], cid)
+    calls.clear()
+    lifecycle.replace_release_file(
+        db_conn,
+        team["docmgr"],
+        cid,
+        str(rev["id"]),
+        filename="signed.xlsx",
+        data=xlsx_bytes("signed"),
+        storage=storage,
+    )
+    assert calls == [cid]
+    lifecycle.release(db_conn, team["docmgr"], cid, cutin_date=date(2026, 11, 1))
+    assert calls == [cid, cid]

@@ -20,14 +20,16 @@ router = APIRouter()
 
 @router.get("/documents")
 def search_documents(
-    q: str = "", _user: dict = Depends(current_user), conn=Depends(get_conn_dep)
+    q: str = "", _user: dict = Depends(current_user), conn=Depends(get_conn_dep, scope="function")
 ) -> list[DocumentSummary]:
     return [assemble.document_summary(r) for r in search.search_documents(conn, q)]
 
 
 @router.get("/documents/{document_id}")
 def get_document(
-    document_id: str, _user: dict = Depends(current_user), conn=Depends(get_conn_dep)
+    document_id: str,
+    _user: dict = Depends(current_user),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> DocumentDetail:
     detail = search.document_detail(conn, uid(document_id))
     if detail is None:
@@ -40,7 +42,7 @@ async def download_revision(
     revision_id: str,
     which: Literal["released", "redline"] = "released",
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
     storage: Storage = Depends(get_storage),
 ) -> RedirectResponse:
     rid = uid(revision_id)

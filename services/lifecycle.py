@@ -225,6 +225,7 @@ def set_approvers(conn: Any, actor: dict, change_id: str, user_ids: list[str]) -
 
 
 def submit(conn: Any, actor: dict, change_id: str) -> dict:
+    changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
     _require_status(change, "initiate")
     _require_creator(actor, change)
@@ -243,16 +244,17 @@ def approve(
 ) -> dict:
     changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
+    # Idempotent before the status check: the final approver's second click lands
+    # after the change has moved on to implementation and must still get its row back.
+    for row in changes.live_approvals(conn, change_id):
+        if str(row["user_id"]) == str(actor["id"]) and row["decision"] == "approved":
+            return row
     _require_status(change, "approval")
     approver_ids = {str(a["user_id"]) for a in changes.approvers(conn, change_id)}
     if str(actor["id"]) not in approver_ids:
         raise LifecycleError("not_an_approver", "you are not an approver on this change")
     if str(change["created_by"]) == str(actor["id"]):
         raise LifecycleError("self_approval", "you cannot approve your own change")
-    live = changes.live_approvals(conn, change_id)
-    for row in live:
-        if str(row["user_id"]) == str(actor["id"]) and row["decision"] == "approved":
-            return row
     hashes = sorted(r["sha256"] for r in documents.revisions_for_change(conn, change_id))
     approval = changes.insert_approval(
         conn,
@@ -315,6 +317,7 @@ def replace_release_file(
     data: bytes,
     storage: Storage,
 ) -> dict:
+    changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
     _require_status(change, "implementation")
     _require_doc_manager(actor)
@@ -352,6 +355,7 @@ def replace_release_file(
 
 
 def release(conn: Any, actor: dict, change_id: str, *, cutin_date: date | None) -> dict:
+    changes.lock(conn, change_id)
     change = _load_change(conn, change_id)
     _require_status(change, "implementation")
     _require_doc_manager(actor)
@@ -370,6 +374,8 @@ def release(conn: Any, actor: dict, change_id: str, *, cutin_date: date | None) 
             released_by=str(actor["id"]),
             released_at=at,
         )
+        if done is None:
+            raise LifecycleError("wrong_status", "revision is already released")
         documents.supersede_current(conn, document_id, str(rev["id"]), at)
         released.append(
             {

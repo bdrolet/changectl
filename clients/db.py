@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from typing import Any, Optional
 
 import psycopg
@@ -21,12 +22,25 @@ def get_conn():
     return _direct_conn()
 
 
+# One Connector per process: each instance owns a background refresh thread and
+# cached certificates, so making one per request leaks both.
+_connector: Any = None
+_connector_lock = threading.Lock()
+
+
+def _get_connector() -> Any:
+    global _connector
+    with _connector_lock:
+        if _connector is None:
+            from google.cloud.sql.connector import Connector
+
+            _connector = Connector()
+        return _connector
+
+
 def _cloud_sql_conn(connection_name: str) -> "_Pg8000Conn":
     # connector v1.20 does not support 'psycopg' driver — use pg8000 instead.
-    from google.cloud.sql.connector import Connector
-
-    connector = Connector()
-    pg_conn = connector.connect(
+    pg_conn = _get_connector().connect(
         connection_name,
         "pg8000",
         user=os.environ["POSTGRES_USER"],

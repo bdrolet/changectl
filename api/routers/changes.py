@@ -67,7 +67,9 @@ _UPLOAD_NOTE = (
 
 @router.post("", status_code=201)
 def create_change(
-    body: CreateBody, actor: dict = Depends(current_user), conn=Depends(get_conn_dep)
+    body: CreateBody,
+    actor: dict = Depends(current_user),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     row = lifecycle.create_change(conn, actor, **body.model_dump())
     return assemble.change_detail(conn, row)
@@ -77,14 +79,16 @@ def create_change(
 def list_changes(
     status: Status | None = None,
     _user: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> list[ChangeSummary]:
     return [assemble.change_summary(conn, r) for r in changes_repo.list_by_status(conn, status)]
 
 
 @router.get("/{change_id}")
 def get_change(
-    change_id: str, _user: dict = Depends(current_user), conn=Depends(get_conn_dep)
+    change_id: str,
+    _user: dict = Depends(current_user),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     cid = uid(change_id)
     row = changes_repo.get(conn, cid)
@@ -98,7 +102,7 @@ def patch_change(
     change_id: str,
     body: PatchBody,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     row = lifecycle.update_change(conn, actor, uid(change_id), **body.model_dump())
     return assemble.change_detail(conn, row)
@@ -111,7 +115,7 @@ async def attach_revision(
     document_id: str | None = Form(None),
     title: str | None = Form(None),
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
     cid = uid(change_id)
@@ -137,7 +141,7 @@ def remove_revision(
     change_id: str,
     revision_id: str,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> Response:
     lifecycle.remove_revision(conn, actor, uid(change_id), uid(revision_id))
     return Response(status_code=204)
@@ -148,7 +152,7 @@ def put_approvers(
     change_id: str,
     body: ApproversBody,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     cid = uid(change_id)
     lifecycle.set_approvers(conn, actor, cid, [uid(u) for u in body.user_ids])
@@ -157,7 +161,9 @@ def put_approvers(
 
 @router.post("/{change_id}/submit")
 def submit_change(
-    change_id: str, actor: dict = Depends(current_user), conn=Depends(get_conn_dep)
+    change_id: str,
+    actor: dict = Depends(current_user),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     return assemble.change_detail(conn, lifecycle.submit(conn, actor, uid(change_id)))
 
@@ -168,7 +174,7 @@ def approve_change(
     request: Request,
     body: ApproveBody | None = None,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     cid = uid(change_id)
     comment = body.comment if body else None
@@ -182,7 +188,7 @@ def request_changes(
     request: Request,
     body: RequestChangesBody,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     cid = uid(change_id)
     lifecycle.request_changes(
@@ -197,7 +203,7 @@ async def release_file(
     revision_id: str,
     file: UploadFile = File(...),
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
     storage: Storage = Depends(get_storage),
 ) -> RevisionOut:
     cid = uid(change_id)
@@ -222,7 +228,7 @@ def release_change(
     change_id: str,
     body: ReleaseBody,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> ChangeDetail:
     row = lifecycle.release(conn, actor, uid(change_id), cutin_date=body.cutin_date)
     return assemble.change_detail(conn, row)
@@ -233,7 +239,7 @@ def add_comment(
     change_id: str,
     body: CommentBody,
     actor: dict = Depends(current_user),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> CommentOut:
     row = lifecycle.add_comment(conn, actor, uid(change_id), body.body)
     return assemble.comment_out(conn, row)

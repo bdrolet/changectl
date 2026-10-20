@@ -44,14 +44,18 @@ class UpdateBody(BaseModel):
 
 
 @router.get("/users")
-def list_users(_user: dict = Depends(current_user), conn=Depends(get_conn_dep)) -> list[UserOut]:
+def list_users(
+    _user: dict = Depends(current_user), conn=Depends(get_conn_dep, scope="function")
+) -> list[UserOut]:
     rows = sorted(users.list_all(conn), key=lambda r: (r["name"].lower(), r["email"]))
     return [user_out(r) for r in rows]
 
 
 @router.post("/users", status_code=201)
 def invite_user(
-    body: InviteBody, actor: dict = Depends(require_doc_manager), conn=Depends(get_conn_dep)
+    body: InviteBody,
+    actor: dict = Depends(require_doc_manager),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> UserOut:
     return user_out(
         user_service.invite(
@@ -70,7 +74,7 @@ def update_user(
     user_id: str,
     body: UpdateBody,
     actor: dict = Depends(require_doc_manager),
-    conn=Depends(get_conn_dep),
+    conn=Depends(get_conn_dep, scope="function"),
 ) -> UserOut:
     return user_out(
         user_service.update(conn, actor, user_id, **body.model_dump(exclude_unset=True))

@@ -14,7 +14,7 @@ def _bearer(request: Request) -> str:
     return parts[1]
 
 
-def current_user(request: Request, conn=Depends(get_conn_dep)) -> dict:
+def current_user(request: Request, conn=Depends(get_conn_dep, scope="function")) -> dict:
     dev_email = os.environ.get("CHANGECTL_DEV_USER_EMAIL")
     dev = bool(dev_email) and not os.environ.get("K_SERVICE")
     if dev:
