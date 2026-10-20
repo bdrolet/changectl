@@ -8,7 +8,9 @@ export default async function NotInvitedPage({
 
   return (
     <div className="mx-auto mt-24 max-w-md text-center">
-      <h1 className="text-2xl font-semibold">You&apos;re not on the list yet</h1>
+      <h1 className="text-2xl font-semibold">
+        You&apos;re not on the list yet
+      </h1>
       <p className="mt-3 text-zinc-600">
         Ask your doc manager to invite {address ?? "your email address"} to
         changectl.
