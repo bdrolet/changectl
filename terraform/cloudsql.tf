@@ -9,6 +9,7 @@ resource "google_sql_database_instance" "changectl" {
   deletion_protection = true
 
   settings {
+    edition           = "ENTERPRISE" # new projects default to Enterprise Plus, which rejects db-f1-micro
     tier              = var.db_tier
     disk_size         = 10
     disk_type         = "PD_SSD"
