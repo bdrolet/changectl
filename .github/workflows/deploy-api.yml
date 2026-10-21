@@ -1,0 +1,54 @@
+name: Deploy API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'clients/**'
+      - 'repo/**'
+      - 'services/**'
+      - 'models/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-api.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SA }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build and push changectl-api image
+        env:
+          IMAGE: us-central1-docker.pkg.dev/${{ vars.CHANGECTL_PROJECT }}/changectl/changectl-api:latest
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy changectl-api \
+            --image us-central1-docker.pkg.dev/${{ vars.CHANGECTL_PROJECT }}/changectl/changectl-api:latest \
+            --region us-central1 \
+            --project ${{ vars.CHANGECTL_PROJECT }}
+
+      - name: Smoke test deployed service
+        run: |
+          SERVICE_URL=$(gcloud run services describe changectl-api \
+            --region us-central1 --project ${{ vars.CHANGECTL_PROJECT }} \
+            --format='value(status.url)')
+          curl -fsS "$SERVICE_URL/health"
