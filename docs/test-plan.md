@@ -162,9 +162,91 @@ Run `docs/demo-script.md` end to end against production with the real accounts (
 
 ## 10. Results
 
+Run 2026-10-21 (22:15–23:30 UTC) by Claude Code against main `82abf05` plus this plan, with one signed-in account: A = D = Ben (engineering, doc manager). No second Google test user was available, so every step that needs a second signed-in person is BLOCKED. The demo seed was not run (it needs Tesa's email), so production started with only Ben's user row. Test data created in production: user "Tester One" (`tester+1@example.test`, operations, not a doc manager, active) and CHG-0001 "Test fixture update 2026-10-21" (in *approval*, waiting on Tester One, who cannot sign in). Re-seed from a fresh database before the demo.
+
+Counts: 44 PASS, 3 FAIL, 30 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
+
 | ID | Result | Note |
 |---|---|---|
-| A1 | | |
-| … | | |
+| A1 | PASS | 110 passed, 1 OTel `LoggingHandler` DeprecationWarning; the five pinned Review Focus tests are present. Port 5434 was held by the `build/mvp` worktree's identical Postgres 16 container (`mvp-db-1`), which was reused. |
+| A2 | PASS | ruff check, ruff format --check (56 files), mypy (32 files) all clean |
+| A3 | PASS | 26 passed (8 files) |
+| A4 | PASS | eslint clean; build succeeded; `.next/standalone` present |
+| A5 | PASS | valid, formatted |
+| A6 | PASS | latest `CI` (`82abf05`) and `CI web` (`af0a91e`; path-filtered since) on main succeeded. Note: the push-triggered `CI` run on `docs/test-plan` (39685183219) failed on a flaky test, `test_replace_release_file_twice_keeps_original_redline` (`tests/test_lifecycle.py:313`), which compares two separately generated xlsx files byte for byte; openpyxl writes the current time into the file, so it fails when the second boundary moves. The PR run of the same commit passed. |
+| A7 | PASS | latest `Deploy API` and `Deploy web` (workflow_dispatch, 17:56 UTC) succeeded; the earlier push-triggered pair from #1 failed |
+| I1 | PASS | `{"status":"ok"}` |
+| I2 | PASS | 401 |
+| I3 | PASS | 200 |
+| I4 | PASS | 307 to `/signin` |
+| I5 | PASS | 307 to `/signin` for `/changes`, `/documents`, `/users` |
+| I6 | PASS | both CNAME `ghs.googlehosted.com.`; TLS verifies without `-k` |
+| I7 | PASS | all listed env and secret refs as expected; client ids match; both `allUsers` invoker; min 0, max 2 |
+| I8 | PASS | five secrets; `changectl-google-oauth-client` has version 2 (version 1, the placeholder, is still enabled) |
+| I9 | PASS | uniform access, PAP enforced, versioning on, soft delete 2592000 s (30 days) |
+| I10 | FAIL | Observed: Cloud SQL `settings.deletionProtectionEnabled` is `false`. Postgres 16, ENTERPRISE, `db-f1-micro`, backups on, public IP with no authorized networks are as expected. `terraform/cloudsql.tf` sets only Terraform's `deletion_protection = true`, which blocks `terraform destroy` but not `gcloud sql instances delete`; the spec says "deletion protection on". |
+| I11 | PASS | as `changectl_app`: UPDATE and DELETE on `events` raise InsufficientPrivilege; SELECT works; INSERT privilege granted (checked with `has_table_privilege`, no row inserted) |
+| I12 | FAIL | Observed: `terraform plan` shows 0 to add, 2 to change, 0 to destroy. Both Cloud Run services: remove a service-level `scaling { manual_instance_count = 0, min_instance_count = 0 }` block. `changectl-api` also: remove container `resources.limits.cpu = "1000m"`. Neither is an image change. Cosmetic, but it is a perpetual diff. |
+| I13 | PASS | two services (`changectl-api`, `changectl-web`), one instance (`changectl`) |
+| S1 | PASS | after S5: Sign in with Google → Google account chooser (`prompt=select_account consent`, PKCE); Ben clicked through Google himself (the browser extension has no permission on accounts.google.com); landed on `/changes` with Changes, Documents, Users (A is a doc manager), the name and Sign out |
+| S2 | BLOCKED | needs a second Google test user who is not in `users` |
+| S3 | BLOCKED | needs a Google account that is not a test user |
+| S4 | PASS | `/api/auth/session` has user name, email, image, id, role, isDocManager and `expires`; no id/access/refresh token fields |
+| S5 | PASS | after Sign out: on `/signin`, `/api/auth/session` returns `{}`, `/changes` redirects to `/signin`. Note: the first Sign out click (right after a page load) left the session intact with no message; the second click worked. Not investigated further. |
+| S6 | PASS | reload and a new tab both stay signed in as the same user |
+| S7 | PASS | signed in 22:12 UTC; no requests 23:03–23:18; reload of `/changes` at 23:18 (66 min) rendered the change list with no 401 box |
+| S8 | BLOCKED | needs a second signed-in test user |
+| L1 | PASS | CHG-0001 created in *initiate*; "Same as reason" copied the justification; History shows `change.created` |
+| L2 | PASS | `Test Fixture Spec.docx`, 35.9 KB, *pending*, document "Test Fixture Spec 2026-10-21"; `revision.attached` sha256 matches the local file |
+| L3 | BLOCKED | no released document exists (nothing can be approved with one account); the "Attach to existing document" select lists only released documents |
+| L4 | BLOCKED | needs a released document with a pending revision in an open change (seed not run, release blocked) |
+| L5 | PASS | with B = Tester One (an invited `example.test` user who cannot sign in): listed as *pending*; A is not offered in the picker |
+| L6 | PASS | "Pick at least one approver before submitting."; status stays *initiate* |
+| L7 | PASS | "Attach at least one file before submitting." |
+| L8 | PASS | status *approval*; Edit and Submit gone; Comment available; list shows "Waiting on: Tester One" |
+| L9 | PASS | no Approve button for A; comment posted with name and date; `change.commented` |
+| L10 | BLOCKED | needs B signed in |
+| L11 | BLOCKED | needs B signed in |
+| L12 | BLOCKED | needs B signed in |
+| L13 | BLOCKED | needs B signed in |
+| L14 | BLOCKED | needs B signed in and a change in *implementation* |
+| L15 | BLOCKED | needs a change in *implementation* (approval by B) |
+| L16 | BLOCKED | needs a change in *implementation* |
+| L17 | BLOCKED | needs a change in *implementation* |
+| L18 | BLOCKED | needs a change in *implementation* |
+| L19 | BLOCKED | needs B signed in |
+| L20 | BLOCKED | needs a released change |
+| L21 | BLOCKED | needs approval and release |
+| L22 | BLOCKED | needs a second signed-in account (non-creator) |
+| L23 | PASS | removed the revision of a brand-new document: revision gone, `revision.removed` logged, the document row deleted (DB). The "attach to existing" half is moot: that list only shows released documents, so a brand-new document never appears in it. |
+| L24 | BLOCKED | needs a closed change |
+| F1 | PASS | file input has `accept=".pdf,.docx,.xlsx"`, so the picker hides .txt/.png (native picker not driven) |
+| F2 | PASS | PNG renamed `.pdf`: "That file couldn't be read. Upload a valid PDF, DOCX or XLSX."; no revision listed; no event |
+| F3 | PASS | 26 MiB `%PDF-` file set on the input: "Files must be 25 MB or smaller" and Attach disabled before any upload |
+| F4 | BLOCKED | the browser tool cannot attach a file over 10 MB from disk. A synthetic 20 MiB `%PDF-` + zero-padding file built in the page was accepted (body limit OK), but a real 20 MB PDF was not tried. That revision was then removed (L23). |
+| F5 | BLOCKED | needs a released revision. On the *pending* CHG-0001 revision, Download redirected to a signed GCS URL and saved `Test_Fixture_Spec.docx` (sanitised), sha256 identical to the upload. |
+| F6 | BLOCKED | needs a release with a replacement file |
+| F7 | BLOCKED | the browser tool redacts the signed URL's query string, so the same link could not be reopened after 10 minutes; needs a person at a browser (copy the link from chrome://downloads) |
+| F8 | PASS | cookie-less `GET /api/download/<pending revision id>` → 307 to `/signin` (curl instead of a private window) |
+| F9 | BLOCKED | needs released documents |
+| F10 | BLOCKED | `the`, `&&` and empty return no error, but there are no released documents, so title matching and "lists all" cannot be checked |
+| U1 | BLOCKED | needs a signed-in non-doc-manager |
+| U2 | PASS | Tester One invited as quality; row *active*; `user.invited` event in the DB |
+| U3 | PASS | `Tester+1@Example.TEST`: "A user with that email already exists." |
+| U4 | PASS | role → operations and Doc manager on, both persist on reload |
+| U5 | PASS | "Finish or reassign CHG-0001 before deactivating Tester One." |
+| U6 | PASS | "There must be at least one active doc manager."; still a doc manager |
+| U7 | PASS | demoted Tester One while two doc managers existed |
+| U8 | BLOCKED | status flips deactivated ↔ active; "can sign in again" cannot be checked for an `example.test` user |
+| D1 | PASS | one event per mutation performed: `change.created` 1, `change.approvers_set` 1, `change.submitted` 1, `change.commented` 1, `revision.attached` 2, `revision.removed` 1, `user.invited` 1, `user.updated` 5, `user.first_sign_in` 1; rejected attempts wrote nothing. The approval/release actions were not exercised (blocked). |
+| D2 | BLOCKED | no approvals exist |
+| D3 | BLOCKED | no approvals or releases exist |
+| D4 | BLOCKED | needs L21; invariants hold trivially on current data |
+| D5 | PASS | same check as I11 |
+| D6 | FAIL | Observed: this file (`docs/test-plan.md`, §0 and §4) contains Ben's real address three times; main is clean. Other hits are placeholders (`example.test`, `example.com`, `demo.example`, `a@b.co` in a unit test), the `noreply@anthropic.com` trailer and the deploy service account. |
+| D7 | PASS | no hits |
+| §9 | BLOCKED | needs Tesa's email and a second account |
+
+The rules in §0 say to record results in §9; this section is where the table lives.
 
 Known limitations the executor should not file as failures (deferred review findings, tracked for a later pass): oversize uploads are buffered before the 413; attaching without a title or document maps to 415; History shows raw action codes and JSON; a user's role in the nav is a sign-in-time snapshot (8 h); the attach picker lists at most 50 documents and includes busy ones; a doc manager can deactivate themselves from the UI when another doc manager exists; a failed release-file replacement partway through is not summarised to the user; Testing-mode Google sessions need a re-sign-in weekly.
