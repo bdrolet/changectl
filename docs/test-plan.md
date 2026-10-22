@@ -162,9 +162,13 @@ Run `docs/demo-script.md` end to end against production with the real accounts (
 
 ## 10. Results
 
-Run 2026-10-21 (22:15–23:30 UTC) by Claude Code against main `82abf05` plus this plan, with one signed-in account: A = D = Ben (engineering, doc manager). No second Google test user was available, so every step that needs a second signed-in person is BLOCKED. The demo seed was not run (it needs Tesa's email), so production started with only Ben's user row. Test data created in production: user "Tester One" (`tester+1@example.test`, operations, not a doc manager, active) and CHG-0001 "Test fixture update 2026-10-21" (in *approval*, waiting on Tester One, who cannot sign in). Re-seed from a fresh database before the demo.
+Run 2026-10-21 by Claude Code against main `82abf05` plus this plan, in two rounds. Round 1 (22:15–23:30 UTC) had one signed-in account: A = D = Ben (engineering, doc manager). Round 2 (23:30–00:05 UTC) added account B, a second Google test user invited as "Ben Drolet (B)" (quality, not a doc manager), signed in from a separate Chrome profile. The demo seed was not run (it needs Tesa's email), so production started with only Ben's user row.
 
-Counts: 44 PASS, 3 FAIL, 30 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
+Test data left in production (re-seed from a fresh database before the demo): users "Tester One" (`tester+1@example.test`, cannot sign in) and B; CHG-0001, CHG-0003 and CHG-0005 in *approval* waiting on Tester One; CHG-0002, CHG-0004 and CHG-0006 *closed*; CHG-0007 in *initiate* with no files. Released documents: "Prototype BOM 2026-10-21" Rev 1, "Fixture Spec L15 2026-10-21" Rev 2, "Notes on the fixture 2026-10-21" Rev 1.
+
+Counts: 69 PASS, 3 FAIL, 5 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
+
+Findings beyond the FAILs: after attaching to an existing document, the attach form shows "New document" but keeps the title field hidden until a reload (L3); the first Sign out click after a page load did nothing (S5); a deactivated user sees a bare "Forbidden" box with the normal nav (S8).
 
 | ID | Result | Note |
 |---|---|---|
@@ -195,53 +199,53 @@ Counts: 44 PASS, 3 FAIL, 30 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
 | S5 | PASS | after Sign out: on `/signin`, `/api/auth/session` returns `{}`, `/changes` redirects to `/signin`. Note: the first Sign out click (right after a page load) left the session intact with no message; the second click worked. Not investigated further. |
 | S6 | PASS | reload and a new tab both stay signed in as the same user |
 | S7 | PASS | signed in 22:12 UTC; no requests 23:03–23:18; reload of `/changes` at 23:18 (66 min) rendered the change list with no 401 box |
-| S8 | BLOCKED | needs a second signed-in test user |
+| S8 | PASS | A deactivated B (not a pending approver); B's reload of `/changes` shows a "Forbidden" error box (nav still shows B's name and New change); B's signed approval on CHG-0004 still shows *signed* |
 | L1 | PASS | CHG-0001 created in *initiate*; "Same as reason" copied the justification; History shows `change.created` |
 | L2 | PASS | `Test Fixture Spec.docx`, 35.9 KB, *pending*, document "Test Fixture Spec 2026-10-21"; `revision.attached` sha256 matches the local file |
-| L3 | BLOCKED | no released document exists (nothing can be approved with one account); the "Attach to existing document" select lists only released documents |
-| L4 | BLOCKED | needs a released document with a pending revision in an open change (seed not run, release blocked) |
+| L3 | PASS | CHG-0006 attached `Cable Assembly Spec.docx` to the released "Fixture Spec L15" (the select lists released documents only). Found while doing it: after an attach to an existing document the form resets the select to "New document" but keeps the title field hidden until a reload, so a following new-document attach would go up without a title |
+| L4 | PASS | CHG-0007, attach to "Fixture Spec L15" while CHG-0006 held a pending revision: "That document already has a revision in an open change." |
 | L5 | PASS | with B = Tester One (an invited `example.test` user who cannot sign in): listed as *pending*; A is not offered in the picker |
 | L6 | PASS | "Pick at least one approver before submitting."; status stays *initiate* |
 | L7 | PASS | "Attach at least one file before submitting." |
 | L8 | PASS | status *approval*; Edit and Submit gone; Comment available; list shows "Waiting on: Tester One" |
 | L9 | PASS | no Approve button for A; comment posted with name and date; `change.commented` |
-| L10 | BLOCKED | needs B signed in |
-| L11 | BLOCKED | needs B signed in |
-| L12 | BLOCKED | needs B signed in |
-| L13 | BLOCKED | needs B signed in |
-| L14 | BLOCKED | needs B signed in and a change in *implementation* |
-| L15 | BLOCKED | needs a change in *implementation* (approval by B) |
-| L16 | BLOCKED | needs a change in *implementation* |
-| L17 | BLOCKED | needs a change in *implementation* |
-| L18 | BLOCKED | needs a change in *implementation* |
-| L19 | BLOCKED | needs B signed in |
-| L20 | BLOCKED | needs a released change |
-| L21 | BLOCKED | needs approval and release |
-| L22 | BLOCKED | needs a second signed-in account (non-creator) |
+| L10 | PASS | dialog: "You are signing as Ben Drolet (B) (<B's email>). This records your approval of CHG-0004 "Fixture spec first release 2026-10-21" with the attached files as they are now."; B *signed*; status *implementation*; History `change.approved`, `change.approval_complete` |
+| L11 | PASS | on CHG-0005: an empty comment is stopped by the browser's required-field tooltip; a whitespace-only comment shows "Add a comment explaining what needs to change." The plan's first half (Approve again, then Request changes) cannot happen: once B has signed, B gets neither button (`ActionBar` shows them only while B must sign) |
+| L12 | BLOCKED | verified: CHG-0005 back to *initiate*, B's row *changes requested* with time and comment, creator can Edit and Submit. Not verifiable: voiding another approver's prior approval needs a second approver who can sign in (a third account), since B cannot request changes after signing |
+| L13 | PASS | A resubmitted CHG-0005, B approved: no unique-violation error. DB: B's changes-requested row voided with reason `resubmitted`, then a fresh approved row. History lists no voiding event (only `change.submitted` then `change.approved`) |
+| L14 | PASS | B sees only Comment on an *implementation* change. Note: the release dialog markup is in B's DOM (closed); the server still enforces doc manager (`services/lifecycle.py:361`) |
+| L15 | PASS | CHG-0004: dialog shows the signed filename, "Replace with clean file" (accept `.docx`), cut-in date defaulting to 2026-10-21; Release Rev 1 → *closed*, *Rev 1*; Documents lists it released 2026-10-21 by Ben; `change.released` |
+| L16 | PASS | CHG-0002 released with `Prototype BOM rev2.xlsx`: Rev 1, *redline* tag, **Download** and **Download redline**; `revision.release_file_replaced` |
+| L17 | PASS | replacement input accepts only `.xlsx`; a PDF forced in gets "A new revision must be the same file type as the document it replaces."; nothing released |
+| L18 | PASS | with the cut-in date cleared, Release is disabled (`ReleaseModal.tsx:152`) and no message shows; the `cutin_required` copy ("Enter a cut-in date before releasing.") is only reachable from the server. Plan expectation should say "button disabled" |
+| L19 | PASS | double-click on the signing dialog's Approve (final approver, CHG-0002): no error, status moved once, one approval row and one `change.approved` in the DB |
+| L20 | PASS | double-click on Release Rev 1 (CHG-0002): one `change.released`, Rev 1. The second click's "wrong status" copy was not visible because the dialog closed; a closed change shows no Release button |
+| L21 | PASS | CHG-0006 (approved by B, released by A): "Fixture Spec L15" Rev 2 current, Rev 1 `superseded_at` set (DB); searching `terminated` (only in the Rev 2 file) returns it |
+| L22 | PASS | B opening `/changes/<CHG-0007>/edit` lands on `/changes/<CHG-0007>` |
 | L23 | PASS | removed the revision of a brand-new document: revision gone, `revision.removed` logged, the document row deleted (DB). The "attach to existing" half is moot: that list only shows released documents, so a brand-new document never appears in it. |
-| L24 | BLOCKED | needs a closed change |
+| L24 | PASS | comment posted and listed on closed CHG-0002 |
 | F1 | PASS | file input has `accept=".pdf,.docx,.xlsx"`, so the picker hides .txt/.png (native picker not driven) |
 | F2 | PASS | PNG renamed `.pdf`: "That file couldn't be read. Upload a valid PDF, DOCX or XLSX."; no revision listed; no event |
 | F3 | PASS | 26 MiB `%PDF-` file set on the input: "Files must be 25 MB or smaller" and Attach disabled before any upload |
 | F4 | BLOCKED | the browser tool cannot attach a file over 10 MB from disk. A synthetic 20 MiB `%PDF-` + zero-padding file built in the page was accepted (body limit OK), but a real 20 MB PDF was not tried. That revision was then removed (L23). |
-| F5 | BLOCKED | needs a released revision. On the *pending* CHG-0001 revision, Download redirected to a signed GCS URL and saved `Test_Fixture_Spec.docx` (sanitised), sha256 identical to the upload. |
-| F6 | BLOCKED | needs a release with a replacement file |
+| F5 | PASS | CHG-0002 Download: `Prototype_BOM_rev2.xlsx` (sanitised), sha256 identical to the uploaded clean file |
+| F6 | PASS | Download redline: `redline-Prototype_BOM_rev2.xlsx`, sha256 identical to the originally signed `Prototype BOM.xlsx` |
 | F7 | BLOCKED | the browser tool redacts the signed URL's query string, so the same link could not be reopened after 10 minutes; needs a person at a browser (copy the link from chrome://downloads) |
 | F8 | PASS | cookie-less `GET /api/download/<pending revision id>` → 307 to `/signin` (curl instead of a private window) |
-| F9 | BLOCKED | needs released documents |
-| F10 | BLOCKED | `the`, `&&` and empty return no error, but there are no released documents, so title matching and "lists all" cannot be checked |
-| U1 | BLOCKED | needs a signed-in non-doc-manager |
+| F9 | PASS | `connector` → BOM and fixture spec; `Northgate` → BOM; `Ohm` → fixture spec; `terminated`/`shipment` (only in the then-pending cable spec) → nothing |
+| F10 | PASS | `&&` → no error, no match; empty → all three current documents; `the` → "Notes on the fixture 2026-10-21" (title match) |
+| U1 | PASS | B on `/users`: only "Only doc managers can manage users."; no Users link in B's nav |
 | U2 | PASS | Tester One invited as quality; row *active*; `user.invited` event in the DB |
 | U3 | PASS | `Tester+1@Example.TEST`: "A user with that email already exists." |
 | U4 | PASS | role → operations and Doc manager on, both persist on reload |
 | U5 | PASS | "Finish or reassign CHG-0001 before deactivating Tester One." |
 | U6 | PASS | "There must be at least one active doc manager."; still a doc manager |
 | U7 | PASS | demoted Tester One while two doc managers existed |
-| U8 | BLOCKED | status flips deactivated ↔ active; "can sign in again" cannot be checked for an `example.test` user |
-| D1 | PASS | one event per mutation performed: `change.created` 1, `change.approvers_set` 1, `change.submitted` 1, `change.commented` 1, `revision.attached` 2, `revision.removed` 1, `user.invited` 1, `user.updated` 5, `user.first_sign_in` 1; rejected attempts wrote nothing. The approval/release actions were not exercised (blocked). |
-| D2 | BLOCKED | no approvals exist |
-| D3 | BLOCKED | no approvals or releases exist |
-| D4 | BLOCKED | needs L21; invariants hold trivially on current data |
+| U8 | PASS | Tester One and B each deactivated and reactivated; status flips; after reactivation B's existing session lists changes again (a fresh Google sign-in was not repeated) |
+| D1 | PASS | after round 2: `change.created` 7, `change.submitted` 7, `change.approvers_set` 6, `change.approved` 5, `change.approval_complete` 3, `change.changes_requested` 1, `change.released` 3, `change.commented` 2, `revision.attached` 8, `revision.removed` 1, `revision.release_file_replaced` 1, `revision.downloaded` 4, `user.invited` 2, `user.updated` 7, `user.first_sign_in` 2; rejected attempts wrote nothing. `change.updated` never fired (no change fields were edited) |
+| D2 | PASS | all six approval rows have `google_sub`, `email`, sorted `file_sha256s`, `signed_at`; the voided row has `voided_at` and `voided_reason = resubmitted` |
+| D3 | PASS | every live approval's `file_sha256s` equals the hashes of the files attached at signing; CHG-0002's `redline_sha256` equals the signed hash and the downloaded redline (F6) |
+| D4 | PASS | no duplicate revision numbers; one current revision per document; "Fixture Spec L15" Rev 1 superseded, Rev 2 current |
 | D5 | PASS | same check as I11 |
 | D6 | FAIL | Observed: this file (`docs/test-plan.md`, §0 and §4) contains Ben's real address three times; main is clean. Other hits are placeholders (`example.test`, `example.com`, `demo.example`, `a@b.co` in a unit test), the `noreply@anthropic.com` trailer and the deploy service account. |
 | D7 | PASS | no hits |
