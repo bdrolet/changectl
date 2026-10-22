@@ -162,11 +162,11 @@ Run `docs/demo-script.md` end to end against production with the real accounts (
 
 ## 10. Results
 
-Run 2026-10-21 by Claude Code against main `82abf05` plus this plan, in two rounds. Round 1 (22:15–23:30 UTC) had one signed-in account: A = D = Ben (engineering, doc manager). Round 2 (23:30–00:05 UTC) added account B, a second Google test user invited as "Ben Drolet (B)" (quality, not a doc manager), signed in from a separate Chrome profile. The demo seed was not run (it needs Tesa's email), so production started with only Ben's user row.
+Run 2026-10-21 by Claude Code against main `82abf05` plus this plan, in two rounds. Round 1 (22:15–23:30 UTC) had one signed-in account: A = D = Ben (engineering, doc manager). Round 2 (23:30–00:05 UTC) added account B, a second Google test user invited as "Ben Drolet (B)" (quality, not a doc manager), signed in from a separate Chrome profile. Round 3 (01:00–01:15 UTC) added account C, a third Google test user, used for S2 before being invited as "Ben Drolet (C)" (operations) and then as B's co-approver for L12. The demo seed was not run (it needs Tesa's email), so production started with only Ben's user row.
 
-Test data left in production (re-seed from a fresh database before the demo): users "Tester One" (`tester+1@example.test`, cannot sign in) and B; CHG-0001, CHG-0003 and CHG-0005 in *approval* waiting on Tester One; CHG-0002, CHG-0004 and CHG-0006 *closed*; CHG-0007 in *initiate* with no files. Released documents: "Prototype BOM 2026-10-21" Rev 1, "Fixture Spec L15 2026-10-21" Rev 2, "Notes on the fixture 2026-10-21" Rev 1.
+Test data left in production (re-seed from a fresh database before the demo): users "Tester One" (`tester+1@example.test`, cannot sign in) and B; CHG-0001, CHG-0003 and CHG-0005 in *approval* waiting on Tester One; CHG-0002, CHG-0004 and CHG-0006 *closed*; CHG-0007 in *initiate* with no files; CHG-0008 in *initiate* after C's change request; users B and C. Released documents: "Prototype BOM 2026-10-21" Rev 1, "Fixture Spec L15 2026-10-21" Rev 2, "Notes on the fixture 2026-10-21" Rev 1.
 
-Counts: 69 PASS, 3 FAIL, 5 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
+Counts: 71 PASS, 3 FAIL (I12 and D6 accepted by Ben), 3 BLOCKED, 0 SKIP (77 IDs), plus §9 BLOCKED.
 
 Findings beyond the FAILs: after attaching to an existing document, the attach form shows "New document" but keeps the title field hidden until a reload (L3); the first Sign out click after a page load did nothing (S5); a deactivated user sees a bare "Forbidden" box with the normal nav (S8).
 
@@ -193,7 +193,7 @@ Findings beyond the FAILs: after attaching to an existing document, the attach f
 | I12 | FAIL | Observed: `terraform plan` shows 0 to add, 2 to change, 0 to destroy. Both Cloud Run services: remove a service-level `scaling { manual_instance_count = 0, min_instance_count = 0 }` block. `changectl-api` also: remove container `resources.limits.cpu = "1000m"`. Neither is an image change. Cosmetic, but it is a perpetual diff. Accepted by Ben 2026-10-21: ignore (cosmetic drift). |
 | I13 | PASS | two services (`changectl-api`, `changectl-web`), one instance (`changectl`) |
 | S1 | PASS | after S5: Sign in with Google → Google account chooser (`prompt=select_account consent`, PKCE); Ben clicked through Google himself (the browser extension has no permission on accounts.google.com); landed on `/changes` with Changes, Documents, Users (A is a doc manager), the name and Sign out |
-| S2 | BLOCKED | needs a second Google test user who is not in `users` |
+| S2 | PASS | account C (a Google test user, not yet in `users`, signed in from a third Chrome profile): landed on `/not-invited` with "You're not on the list yet" and its address in the body; `/api/auth/session` empty; `/changes` redirects to `/signin` |
 | S3 | BLOCKED | needs a Google account that is not a test user |
 | S4 | PASS | `/api/auth/session` has user name, email, image, id, role, isDocManager and `expires`; no id/access/refresh token fields |
 | S5 | PASS | after Sign out: on `/signin`, `/api/auth/session` returns `{}`, `/changes` redirects to `/signin`. Note: the first Sign out click (right after a page load) left the session intact with no message; the second click worked. Not investigated further. |
@@ -211,7 +211,7 @@ Findings beyond the FAILs: after attaching to an existing document, the attach f
 | L9 | PASS | no Approve button for A; comment posted with name and date; `change.commented` |
 | L10 | PASS | dialog: "You are signing as Ben Drolet (B) (<B's email>). This records your approval of CHG-0004 "Fixture spec first release 2026-10-21" with the attached files as they are now."; B *signed*; status *implementation*; History `change.approved`, `change.approval_complete` |
 | L11 | PASS | on CHG-0005: an empty comment is stopped by the browser's required-field tooltip; a whitespace-only comment shows "Add a comment explaining what needs to change." The plan's first half (Approve again, then Request changes) cannot happen: once B has signed, B gets neither button (`ActionBar` shows them only while B must sign) |
-| L12 | BLOCKED | verified: CHG-0005 back to *initiate*, B's row *changes requested* with time and comment, creator can Edit and Submit. Not verifiable: voiding another approver's prior approval needs a second approver who can sign in (a third account), since B cannot request changes after signing |
+| L12 | PASS | CHG-0005 (B alone) and CHG-0008 (approvers B and C): after B signed, C requested changes with a comment → *initiate*; C's row *changes requested* with time and comment; B's row "Approved … · voided: changes_requested_by:<C's email>"; creator can Edit and Submit again |
 | L13 | PASS | A resubmitted CHG-0005, B approved: no unique-violation error. DB: B's changes-requested row voided with reason `resubmitted`, then a fresh approved row. History lists no voiding event (only `change.submitted` then `change.approved`) |
 | L14 | PASS | B sees only Comment on an *implementation* change. Note: the release dialog markup is in B's DOM (closed); the server still enforces doc manager (`services/lifecycle.py:361`) |
 | L15 | PASS | CHG-0004: dialog shows the signed filename, "Replace with clean file" (accept `.docx`), cut-in date defaulting to 2026-10-21; Release Rev 1 → *closed*, *Rev 1*; Documents lists it released 2026-10-21 by Ben; `change.released` |
