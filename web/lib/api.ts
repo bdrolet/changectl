@@ -1,6 +1,7 @@
 import "server-only";
 
 import { headers as requestHeaders } from "next/headers";
+import { redirect } from "next/navigation";
 import { getToken } from "next-auth/jwt";
 
 import { auth } from "@/auth";
@@ -101,4 +102,13 @@ export async function apiFetch<T>(
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** Leave the page when the session is gone: expired → sign-in; deactivated
+ * mid-session (the cookie is still valid, the API answers not_invited) →
+ * the same page sign-in would have shown. Other errors are the caller's. */
+export function redirectIfSignedOut(e: unknown): void {
+  if (!(e instanceof ApiError)) return;
+  if (e.status === 401) redirect("/signin");
+  if (e.status === 403 && e.detail === "not_invited") redirect("/not-invited");
 }

@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { auth } from "@/auth";
 import { ActionBar } from "@/components/ActionBar";
@@ -7,7 +7,7 @@ import { CommentList } from "@/components/CommentList";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { RevisionList } from "@/components/RevisionList";
 import { StatusPill } from "@/components/StatusPill";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, redirectIfSignedOut } from "@/lib/api";
 import { dateOnly } from "@/lib/format";
 import type { ChangeDetail } from "@/lib/types";
 
@@ -38,7 +38,7 @@ export default async function ChangeDetailPage({
   try {
     change = await apiFetch<ChangeDetail>(`/changes/${encodeURIComponent(id)}`);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     if (e instanceof ApiError && e.status === 404) notFound();
     return (
       <div

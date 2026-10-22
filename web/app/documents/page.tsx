@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/Alert";
 import { SearchBox } from "@/components/SearchBox";
-import { ApiError, apiFetch } from "@/lib/api";
+import { apiFetch, redirectIfSignedOut } from "@/lib/api";
 import { dateOnly } from "@/lib/format";
 import type { DocumentSummary } from "@/lib/types";
 
@@ -22,7 +21,7 @@ export default async function DocumentsPage({
       q ? `/documents?q=${encodeURIComponent(q)}` : "/documents",
     );
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     error = e instanceof Error ? e.message : "Failed to load documents";
   }
 

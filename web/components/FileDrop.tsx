@@ -18,7 +18,14 @@ export function FileDrop({
   const [tooLarge, setTooLarge] = useState(false);
   const [documentId, setDocumentId] = useState("");
   const [state, action, pending] = useActionState<ActionResult | null, FormData>(
-    async (_prev, form) => attachRevision(changeId, form),
+    async (_prev, form) => {
+      const result = await attachRevision(changeId, form);
+      // React resets the form's fields after the action; match the state to
+      // them so the title field reappears with "New document" selected.
+      setDocumentId("");
+      setTooLarge(false);
+      return result;
+    },
     null,
   );
 

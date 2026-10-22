@@ -296,22 +296,25 @@ def test_replace_release_file_twice_keeps_original_redline(db_conn, team, storag
     cid, rev = _submitted(db_conn, team, storage)
     _approve(db_conn, team["a"], cid)
     _approve(db_conn, team["b"], cid)
+    # Build each file once: openpyxl stamps the current time into the zip, so
+    # regenerating for the comparison flakes across a second boundary.
+    payloads = [xlsx_bytes("signed1"), xlsx_bytes("signed2")]
     keys = []
-    for text in ("signed1", "signed2"):
+    for data in payloads:
         out = lifecycle.replace_release_file(
             db_conn,
             team["docmgr"],
             cid,
             str(rev["id"]),
             filename="signed.xlsx",
-            data=xlsx_bytes(text),
+            data=data,
             storage=storage,
         )
         keys.append(out["gcs_key"])
     assert out["redline_sha256"] == rev["sha256"]
     assert out["redline_gcs_key"] == rev["gcs_key"]
     assert keys[0] != keys[1]
-    assert storage.get(keys[0]) == xlsx_bytes("signed1")
+    assert storage.get(keys[0]) == payloads[0]
 
 
 def test_non_creator_cannot_edit_initiate_change(db_conn, team, storage):

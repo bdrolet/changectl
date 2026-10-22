@@ -157,26 +157,30 @@ export function ActionBar({
 
       <Alert message={signing ? null : error} />
 
-      <ReleaseModal
-        open={releasing}
-        changeId={change.id}
-        revisions={change.revisions}
-        onClose={() => setReleasing(false)}
-      />
+      {change.status === "implementation" && viewer.isDocManager && (
+        <ReleaseModal
+          open={releasing}
+          changeId={change.id}
+          revisions={change.revisions}
+          onClose={() => setReleasing(false)}
+        />
+      )}
 
-      <ConfirmSign
-        open={signing}
-        name={viewer.name}
-        email={viewer.email}
-        number={change.number}
-        title={change.title}
-        pending={pending}
-        error={signing ? error : null}
-        onCancel={() => {
-          if (!pending) setSigning(false);
-        }}
-        onConfirm={() => run(() => approveChange(change.id))}
-      />
+      {change.status === "approval" && mustSign && (
+        <ConfirmSign
+          open={signing}
+          name={viewer.name}
+          email={viewer.email}
+          number={change.number}
+          title={change.title}
+          pending={pending}
+          error={signing ? error : null}
+          onCancel={() => {
+            if (!pending) setSigning(false);
+          }}
+          onConfirm={() => run(() => approveChange(change.id))}
+        />
+      )}
     </div>
   );
 }
