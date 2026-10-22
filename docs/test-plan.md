@@ -99,14 +99,14 @@ Preconditions: two signed-in accounts in `users`: **A** (creator, engineering), 
 | L8 | As A: Submit the L1 change | status *approval*; Edit/Submit gone; **Comment** available; Changes list shows "Waiting on: B" |
 | L9 | As A (creator): open the change | no Approve button (A is not an approver); Comment works and appears with name and date |
 | L10 | As B: **Approve** → dialog "Sign approval" with "You are signing as B (email). This records your approval of CHG-nnnn "title" with the attached files as they are now." → **Approve** | B shows *signed*; since B was the only approver the change moves to *implementation*; History shows `change.approved` and `change.approval_complete` |
-| L11 | As B: click Approve again on another change where B is one of two approvers; then click **Request changes** without a comment | "Add a comment explaining what needs to change." in the dialog/line |
+| L11 | As B, before signing, on a change where B is one of two approvers: **Request changes** with an empty comment, then with only spaces (once B has signed, B gets neither Approve nor Request changes) | empty: the browser's required-field prompt; spaces: "Add a comment explaining what needs to change." |
 | L12 | As B: **Request changes** with a comment on a change in approval | status back to *initiate*; B's row shows *changes requested* with the comment and time under it; prior approvals show *voided* with reason `changes_requested_by:<email>` in the approvals section; creator can Edit again |
 | L13 | As A: resubmit the L12 change; as B approve | works (no unique-violation error); History shows the voided rows, then a fresh approval |
 | L14 | As a non-doc-manager (B): open an *implementation* change | no **Release** button |
 | L15 | As D: **Release** on the L10 change → dialog shows the signed filename, optional "Replace with clean file", **Cut-in date** defaulting to today → **Release Rev 1** | status *closed*; revision shows *Rev 1*; document now exists in Documents with Rev 1, released today by D; History shows `change.released` |
 | L16 | As D: release with a replacement file of the **same** type (`Prototype BOM rev2.xlsx` against an xlsx revision) | released; revision shows a **Download redline** link (the originally signed file) and **Download** (the clean file) |
 | L17 | As D: release with a replacement of a **different** type (a .pdf for an .xlsx revision) | the file input refuses it (accept filter) or the server answers "type mismatch" copy; nothing released |
-| L18 | As D: try Release with the cut-in date cleared | error "cut-in date is required" copy (`cutin_required`) |
+| L18 | As D: try Release with the cut-in date cleared | **Release** is disabled; nothing released (the server's `cutin_required` copy, "Enter a cut-in date before releasing.", is only reachable without the UI) |
 | L19 | Double-click **Approve** quickly as the final approver | one approval row, no error; status moves once |
 | L20 | Double-click **Release** / re-run release on an already closed change | second attempt gets "wrong status" copy; revision numbers unchanged |
 | L21 | Revision flow: new change by A attaching a redline against the L15 document, approver B, submit, B approves, D releases | document shows Rev 2 current and Rev 1 *superseded*; Documents search returns Rev 2 |
@@ -190,7 +190,7 @@ Findings beyond the FAILs: after attaching to an existing document, the attach f
 | I9 | PASS | uniform access, PAP enforced, versioning on, soft delete 2592000 s (30 days) |
 | I10 | FAIL | Observed: Cloud SQL `settings.deletionProtectionEnabled` is `false`. Postgres 16, ENTERPRISE, `db-f1-micro`, backups on, public IP with no authorized networks are as expected. `terraform/cloudsql.tf` sets only Terraform's `deletion_protection = true`, which blocks `terraform destroy` but not `gcloud sql instances delete`; the spec says "deletion protection on". |
 | I11 | PASS | as `changectl_app`: UPDATE and DELETE on `events` raise InsufficientPrivilege; SELECT works; INSERT privilege granted (checked with `has_table_privilege`, no row inserted) |
-| I12 | FAIL | Observed: `terraform plan` shows 0 to add, 2 to change, 0 to destroy. Both Cloud Run services: remove a service-level `scaling { manual_instance_count = 0, min_instance_count = 0 }` block. `changectl-api` also: remove container `resources.limits.cpu = "1000m"`. Neither is an image change. Cosmetic, but it is a perpetual diff. |
+| I12 | FAIL | Observed: `terraform plan` shows 0 to add, 2 to change, 0 to destroy. Both Cloud Run services: remove a service-level `scaling { manual_instance_count = 0, min_instance_count = 0 }` block. `changectl-api` also: remove container `resources.limits.cpu = "1000m"`. Neither is an image change. Cosmetic, but it is a perpetual diff. Accepted by Ben 2026-10-21: ignore (cosmetic drift). |
 | I13 | PASS | two services (`changectl-api`, `changectl-web`), one instance (`changectl`) |
 | S1 | PASS | after S5: Sign in with Google → Google account chooser (`prompt=select_account consent`, PKCE); Ben clicked through Google himself (the browser extension has no permission on accounts.google.com); landed on `/changes` with Changes, Documents, Users (A is a doc manager), the name and Sign out |
 | S2 | BLOCKED | needs a second Google test user who is not in `users` |
@@ -247,7 +247,7 @@ Findings beyond the FAILs: after attaching to an existing document, the attach f
 | D3 | PASS | every live approval's `file_sha256s` equals the hashes of the files attached at signing; CHG-0002's `redline_sha256` equals the signed hash and the downloaded redline (F6) |
 | D4 | PASS | no duplicate revision numbers; one current revision per document; "Fixture Spec L15" Rev 1 superseded, Rev 2 current |
 | D5 | PASS | same check as I11 |
-| D6 | FAIL | Observed: this file (`docs/test-plan.md`, §0 and §4) contains Ben's real address three times; main is clean. Other hits are placeholders (`example.test`, `example.com`, `demo.example`, `a@b.co` in a unit test), the `noreply@anthropic.com` trailer and the deploy service account. |
+| D6 | FAIL | Observed: this file (`docs/test-plan.md`, §0 and §4) contains Ben's real address three times; main is clean. Other hits are placeholders (`example.test`, `example.com`, `demo.example`, `a@b.co` in a unit test), the `noreply@anthropic.com` trailer and the deploy service account. Accepted by Ben 2026-10-21: ignore. |
 | D7 | PASS | no hits |
 | §9 | BLOCKED | needs Tesa's email and a second account |
 
