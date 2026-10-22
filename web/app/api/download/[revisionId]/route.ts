@@ -34,6 +34,12 @@ export async function GET(
       return NextResponse.redirect(new URL(location, request.url), 302);
     }
     const body: unknown = await response.json().catch(() => ({}));
+    if (
+      response.status === 403 &&
+      (body as { detail?: unknown }).detail === "not_invited"
+    ) {
+      return NextResponse.redirect(new URL("/not-invited", request.url), 302);
+    }
     return NextResponse.json(body, { status: response.status });
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {

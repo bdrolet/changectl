@@ -8,7 +8,7 @@ import {
   DocManagerToggle,
   RoleSelect,
 } from "@/components/UserControls";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, redirectIfSignedOut } from "@/lib/api";
 import type { UserOut } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export default async function UsersPage() {
   try {
     users = await apiFetch<UserOut[]>("/users");
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     if (e instanceof ApiError && e.detail === "doc_manager_required") {
       return (
         <div className="space-y-4">

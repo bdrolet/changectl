@@ -5,7 +5,7 @@ import { ApproverPicker } from "@/components/ApproverPicker";
 import { ChangeForm } from "@/components/ChangeForm";
 import { FileDrop } from "@/components/FileDrop";
 import { RevisionRemoveList } from "@/components/RevisionRemoveList";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, redirectIfSignedOut } from "@/lib/api";
 import type { ChangeDetail, DocumentSummary, UserOut } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +42,7 @@ export default async function EditChangePage({
       apiFetch<UserOut[]>("/users"),
     ]);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     if (e instanceof ApiError && e.status === 404) notFound();
     return (
       <div

@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { ChangeTable } from "@/components/ChangeTable";
-import { ApiError, apiFetch } from "@/lib/api";
+import { apiFetch, redirectIfSignedOut } from "@/lib/api";
 import type { ChangeSummary } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +35,7 @@ export default async function ChangesPage({
       status ? `/changes?status=${status}` : "/changes",
     );
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     error = e instanceof Error ? e.message : "Failed to load changes";
   }
   // Array.prototype.sort is stable, so the API's newest-first order holds

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { StatusPill } from "@/components/StatusPill";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, redirectIfSignedOut } from "@/lib/api";
 import { bytes, dateOnly } from "@/lib/format";
 import type { DocumentDetail } from "@/lib/types";
 
@@ -25,7 +25,7 @@ export default async function DocumentPage({
       `/documents/${encodeURIComponent(id)}`,
     );
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) redirect("/signin");
+    redirectIfSignedOut(e);
     if (e instanceof ApiError && e.status === 404) notFound();
     return (
       <div

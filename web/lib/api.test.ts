@@ -7,10 +7,36 @@ vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
 vi.mock("next-auth/jwt", () => ({
   getToken: vi.fn(async () => ({ id_token: "t" })),
 }));
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT ${url}`);
+  }),
+}));
 
 import { getToken } from "next-auth/jwt";
 
-import { apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, redirectIfSignedOut } from "@/lib/api";
+
+describe("redirectIfSignedOut", () => {
+  it("sends an expired session to /signin", () => {
+    expect(() =>
+      redirectIfSignedOut(new ApiError(401, "invalid_token", "x")),
+    ).toThrow("NEXT_REDIRECT /signin");
+  });
+
+  it("sends a user deactivated mid-session to /not-invited", () => {
+    expect(() =>
+      redirectIfSignedOut(new ApiError(403, "not_invited", "Forbidden")),
+    ).toThrow("NEXT_REDIRECT /not-invited");
+  });
+
+  it("leaves other errors to the caller", () => {
+    expect(() =>
+      redirectIfSignedOut(new ApiError(403, "forbidden", "Forbidden")),
+    ).not.toThrow();
+    expect(() => redirectIfSignedOut(new Error("boom"))).not.toThrow();
+  });
+});
 
 describe("apiFetch", () => {
   afterEach(() => vi.unstubAllGlobals());
