@@ -15,6 +15,10 @@ resource "google_sql_database_instance" "changectl" {
     disk_type         = "PD_SSD"
     availability_type = "ZONAL"
 
+    # GCP-side guard: refuses deletes from the console, gcloud or the API.
+    # The top-level deletion_protection above only stops Terraform itself.
+    deletion_protection_enabled = true
+
     backup_configuration {
       enabled                        = true
       point_in_time_recovery_enabled = false
